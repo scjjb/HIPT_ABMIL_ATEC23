@@ -32,7 +32,7 @@ if args.task == 'task_1_tumor_vs_normal':
 
 elif args.task == 'custom':
     args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = '/media/jack/01D6F8D7C5A832C0/Users/jbree/Documents/Leeds/Bramall_WIP/CLAM/Data_root_dir/Data_test_hg_cc/set_3_test.csv',
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_3.csv',
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,
