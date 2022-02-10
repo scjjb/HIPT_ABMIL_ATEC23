@@ -97,7 +97,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom'])
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
                      help='disable instance-level clustering')
@@ -161,6 +161,17 @@ if args.task == 'task_1_tumor_vs_normal':
                             label_dict = {'normal_tissue':0, 'tumor_tissue':1},
                             patient_strat=False,
                             ignore=[])
+                            
+elif args.task == 'custom':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = '/media/jack/01D6F8D7C5A832C0/Users/jbree/Documents/Leeds/Bramall_WIP/CLAM/Data_root_dir/Data_test_hg_cc/set_3_test.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'Data_test_hg_cc'),
+                            shuffle = False, 
+                            seed = args.seed, 
+                            print_info = True,
+                            label_dict = {'high_grade':0, 'clear_cell':1},
+                            patient_strat= False,
+                            ignore=[])               
 
 elif args.task == 'task_2_tumor_subtyping':
     args.n_classes=3
@@ -209,5 +220,4 @@ if __name__ == "__main__":
     results = main(args)
     print("finished!")
     print("end script")
-
 
