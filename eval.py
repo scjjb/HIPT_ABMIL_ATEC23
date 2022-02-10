@@ -41,7 +41,7 @@ parser.add_argument('--fold', type=int, default=-1, help='single fold to evaluat
 parser.add_argument('--micro_average', action='store_true', default=False, 
                     help='use micro_average instead of macro_avearge for multiclass AUC')
 parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all'], default='test')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom'])
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,6 +79,16 @@ if args.task == 'task_1_tumor_vs_normal':
                             label_dict = {'normal_tissue':0, 'tumor_tissue':1},
                             patient_strat=False,
                             ignore=[])
+                                                     
+elif args.task == 'custom':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = '/media/jack/01D6F8D7C5A832C0/Users/jbree/Documents/Leeds/Bramall_WIP/CLAM/Data_root_dir/Data_test_hg_cc/set_3_test.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'Data_test_hg_cc'),
+                            shuffle = False, 
+                            print_info = True,
+                            label_dict = {'high_grade':0, 'clear_cell':1},
+                            patient_strat= False,
+                            ignore=[])  
 
 elif args.task == 'task_2_tumor_subtyping':
     args.n_classes=3
@@ -142,3 +152,4 @@ if __name__ == "__main__":
     else:
         save_name = 'summary.csv'
     final_df.to_csv(os.path.join(args.save_dir, save_name))
+    
