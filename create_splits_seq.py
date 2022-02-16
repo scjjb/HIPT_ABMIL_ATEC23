@@ -36,7 +36,7 @@ elif args.task == 'custom':
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,
-                            label_dict = {'high_grade':0, 'clear_cell':1},
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3},
                             patient_strat= True,
                             ignore=[])   
 
