@@ -31,7 +31,7 @@ if args.task == 'task_1_tumor_vs_normal':
                             ignore=[])
 
 elif args.task == 'custom':
-    args.n_classes=2
+    args.n_classes=4
     dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_3.csv',
                             shuffle = False, 
                             seed = args.seed, 
