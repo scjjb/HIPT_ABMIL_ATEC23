@@ -2,21 +2,21 @@
 --- 
 exp_arguments:
   # number of classes
-  n_classes: 2
+  n_classes: 4
   # name tag for saving generated figures and assets
   save_exp_code: HEATMAP_OUTPUT 
   # where to save raw asset files
-  raw_save_dir: /media/jack/01D6F8D7C5A832C0/Users/jbree/Documents/Leeds/Bramall_WIP/CLAM
+  raw_save_dir: ../mount_outputs/heatmaps/heatmap_raw_results
   # where to save final heatmaps
-  production_save_dir: /media/jack/01D6F8D7C5A832C0/Users/jbree/Documents/Leeds/Bramall_WIP/CLAM/heatmap_production_results
+  production_save_dir: ../mount_outputs/heatmaps/heatmap_production_results
   batch_size: 128
 data_arguments: 
   # where is data stored; can be a single str path or a dictionary of key, data_dir mapping
-  data_dir: /media/jack/Elements/Set_3
+  data_dir: ../mount_point
   # column name for key in data_dir (if a dict mapping is used)
   data_dir_key: source
   # csv list containing slide_ids (can additionally have seg/patch paramters, class labels, etc.)
-  process_list: heatmap_demo_set3.csv
+  process_list: heatmap_set3.csv
   # preset file for segmentation/patching
   preset: presets/bwh_biopsy.csv
   # file extention for slides
@@ -24,7 +24,9 @@ data_arguments:
   # label dictionary for str: interger mapping (optional)
   label_dict:
     high_grade: 0
-    clear_cell: 1                        
+    low_grade: 1
+    clear_cell: 2
+    endometrioid: 3
 patching_arguments:
   # arguments for patching
   patch_size: 256
@@ -33,7 +35,7 @@ patching_arguments:
   custom_downsample: 1
 model_arguments: 
   # arguments for initializing model from checkpoint
-  ckpt_path: heatmaps/demo/ckpts/s_0_checkpoint.pt
+  ckpt_path: ../mount_outputs/results/set_3_test_s1/s_0_checkpoint.pt
   model_type: clam_sb # see utils/eval_utils/
   initiate_fn: initiate_model # see utils/eval_utils/
   model_size: small
