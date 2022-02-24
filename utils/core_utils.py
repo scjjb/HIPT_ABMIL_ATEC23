@@ -158,6 +158,8 @@ def train(datasets, cur, args):
             model = MIL_fc(**model_dict)
     
     model.relocate()
+    if args.continue_training:
+        model.load_state_dict(torch.load(os.path.join(args.results_dir, "s_{}_checkpoint.pt".format(cur))))
     print('Done!')
     print_network(model)
 
