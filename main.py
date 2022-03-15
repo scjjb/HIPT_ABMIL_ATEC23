@@ -164,15 +164,27 @@ if args.task == 'task_1_tumor_vs_normal':
                             ignore=[])
                             
 elif args.task == 'custom':
-    args.n_classes=4
+    args.n_classes=5
     dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_3.csv',
-                            data_dir= os.path.join(args.data_root_dir, 'set_3_features'),
+                            data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features'),
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3},
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4},
                             patient_strat= False,
-                            ignore=[])               
+                            ignore=[])    
+    
+elif args.task == 'custom_1vsall':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_3.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features'),
+                            shuffle = False, 
+                            seed = args.seed, 
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                            patient_strat= False,
+                            ignore=[])     
+    
 
 elif args.task == 'task_2_tumor_subtyping':
     args.n_classes=3
