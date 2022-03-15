@@ -165,7 +165,7 @@ if args.task == 'task_1_tumor_vs_normal':
                             
 elif args.task == 'custom':
     args.n_classes=5
-    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_3.csv',
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
                             data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features'),
                             shuffle = False, 
                             seed = args.seed, 
@@ -176,7 +176,7 @@ elif args.task == 'custom':
     
 elif args.task == 'custom_1vsall':
     args.n_classes=2
-    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_3.csv',
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
                             data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features'),
                             shuffle = False, 
                             seed = args.seed, 
