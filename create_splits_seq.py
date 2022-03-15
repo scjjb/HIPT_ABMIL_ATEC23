@@ -32,7 +32,7 @@ if args.task == 'task_1_tumor_vs_normal':
 
 elif args.task == 'custom':
     args.n_classes=5
-    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all.csv',
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,
@@ -42,7 +42,7 @@ elif args.task == 'custom':
     
 elif args.task == 'custom_1vsall':
     args.n_classes=2
-    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all.csv',
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,
