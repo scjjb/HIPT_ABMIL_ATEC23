@@ -380,6 +380,7 @@ case_id,slide_id,label
 64,482777,clear_cell
 64,482778,clear_cell
 64,482779,clear_cell
+64,482780,clear_cell
 64,482781,clear_cell
 63,482851,clear_cell
 63,482852,clear_cell
@@ -395,6 +396,7 @@ case_id,slide_id,label
 166,481140,high_grade
 166,481469,high_grade
 166,481470,high_grade
+177,483780,high_grade
 177,483781,high_grade
 177,483923,high_grade
 196,482952,high_grade
@@ -432,7 +434,7 @@ case_id,slide_id,label
 242,480370,low_grade
 242,480374,low_grade
 242,480379,low_grade
-242,480392,low_grade
+242,480386,low_grade
 242,480398,low_grade
 242,481479,low_grade
 243,480401,high_grade
@@ -490,6 +492,8 @@ case_id,slide_id,label
 178,483772,high_grade
 178,483773,high_grade
 178,483774,high_grade
+178,483775,high_grade
+178,483776,high_grade
 178,483920,high_grade
 180,483785,high_grade
 180,483786,high_grade
