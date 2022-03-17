@@ -21,9 +21,11 @@ case_id,slide_id,label
 35,482857,mucinous
 38,482842,high_grade
 37,482854,high_grade
+36,482782,high_grade
 16,482680,clear_cell
 28,482612,clear_cell
 156,482901,clear_cell
+40,482828,high_grade
 41,482833,clear_cell
 42,482837,mucinous
 154,483361,clear_cell
@@ -72,6 +74,7 @@ case_id,slide_id,label
 170,480189,high_grade
 169,480164,high_grade
 232,480332,high_grade
+162,480312,high_grade
 238,482971,high_grade
 242,480368,low_grade
 243,480400,high_grade
@@ -87,6 +90,7 @@ case_id,slide_id,label
 178,483769,high_grade
 180,483784,high_grade
 223,482874,clear_cell
+225,482868,high_grade
 179,483748,high_grade
 167,480120,low_grade
 168,480151,high_grade
@@ -199,6 +203,10 @@ case_id,slide_id,label
 28,482615,clear_cell
 156,482902,clear_cell
 156,482903,clear_cell
+40,482829,high_grade
+40,482830,high_grade
+40,482831,high_grade
+40,482832,high_grade
 41,482834,clear_cell
 41,482835,clear_cell
 41,483113,clear_cell
@@ -216,7 +224,7 @@ case_id,slide_id,label
 25,482628,mucinous
 25,482630,mucinous
 25,482631,mucinous
-25,482832,mucinous
+25,482632,mucinous
 25,482633,mucinous
 25,482634,mucinous
 25,483813,mucinous
@@ -425,6 +433,11 @@ case_id,slide_id,label
 232,480336,high_grade
 232,480337,high_grade
 232,480338,high_grade
+162,480316,high_grade
+162,480320,high_grade
+162,480323,high_grade
+162,480324,high_grade
+162,480325,high_grade
 238,482972,high_grade
 238,482973,high_grade
 238,482974,high_grade
@@ -504,6 +517,12 @@ case_id,slide_id,label
 223,482876,clear_cell
 223,482877,clear_cell
 223,482878,clear_cell
+225,482869,high_grade
+225,482870,high_grade
+225,482871,high_grade
+225,482872,high_grade
+225,482873,high_grade
+225,483359,high_grade
 179,483749,high_grade
 179,483750,high_grade
 179,483751,high_grade
