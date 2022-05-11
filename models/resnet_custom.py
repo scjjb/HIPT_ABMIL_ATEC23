@@ -5,13 +5,14 @@ import torch
 from torchsummary import summary
 import torch.nn.functional as F
 
-__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
+__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50','resnet50_histo', 'resnet101',
            'resnet152']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+    'resnet50_histo': 'https://dox.uliege.be/index.php/s/kvABLtVuMxW8iJy/download',
     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
@@ -108,14 +109,17 @@ class ResNet_Baseline(nn.Module):
 
         return x
 
-def resnet50_baseline(pretrained=False):
+def resnet50_baseline(pretrained=False,dataset='ImageNet'):
     """Constructs a Modified ResNet-50 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet_Baseline(Bottleneck_Baseline, [3, 4, 6, 3])
     if pretrained:
-        model = load_pretrained_weights(model, 'resnet50')
+        if dataset=='ImageNet':
+            model = load_pretrained_weights(model, 'resnet50')
+        elif dataset=='Histo':
+            model = load_pretrained_weights(model, 'resnet50_histo')
     return model
 
 def load_pretrained_weights(model, name):
