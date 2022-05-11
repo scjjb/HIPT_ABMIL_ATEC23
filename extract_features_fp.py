@@ -68,6 +68,7 @@ parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--no_auto_skip', default=False, action='store_true')
 parser.add_argument('--custom_downsample', type=int, default=1)
 parser.add_argument('--target_patch_size', type=int, default=-1)
+parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
 args = parser.parse_args()
 
 
@@ -85,8 +86,8 @@ if __name__ == '__main__':
 	os.makedirs(os.path.join(args.feat_dir, 'h5_files'), exist_ok=True)
 	dest_files = os.listdir(os.path.join(args.feat_dir, 'pt_files'))
 
-	print('loading model checkpoint')
-	model = resnet50_baseline(pretrained=True)
+	print('loading {} pretrained model'.format(args.pretraining_dataset))
+	model = resnet50_baseline(pretrained=True,dataset=args.pretraining_dataset)
 	model = model.to(device)
 	
 	# print_network(model)
