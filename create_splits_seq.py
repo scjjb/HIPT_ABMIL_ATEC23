@@ -12,7 +12,7 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--k', type=int, default=10,
                     help='number of splits (default: 10)')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_1vsall'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_external'])
 parser.add_argument('--val_frac', type=float, default= 0.1,
                     help='fraction of labels for validation (default: 0.1)')
 parser.add_argument('--test_frac', type=float, default= 0.1,
@@ -51,6 +51,17 @@ elif args.task == 'custom_1vsall':
                             ignore=[])     
     
 
+elif args.task == 'custom_1vsall_external':
+    args.n_classes=2
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_canada.csv',
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1}, 
+                            patient_strat= True,   
+                            ignore=[])
+
+
 
 elif args.task == 'task_2_tumor_subtyping':
     args.n_classes=3
@@ -84,10 +95,10 @@ if __name__ == '__main__':
             dataset.set_splits()
             descriptor_df = dataset.test_split_gen(return_descriptor=True)
             splits = dataset.return_splits(from_id=True)
-            if splits[1] is None:
-            	splits=(splits[0],splits[0],splits[2])
-            if splits[2] is None:
-            	splits=(splits[0],splits[1],splits[0])
+            if args.val_frac==0:
+                splits=(splits[0],splits[0],splits[2])
+            if args.val_frac==0:
+                splits=(splits[0],splits[1],splits[0])
             save_splits(splits, ['train', 'val', 'test'], os.path.join(split_dir, 'splits_{}.csv'.format(i)))
             save_splits(splits, ['train', 'val', 'test'], os.path.join(split_dir, 'splits_{}_bool.csv'.format(i)), boolean_style=True)
             descriptor_df.to_csv(os.path.join(split_dir, 'splits_{}_descriptor.csv'.format(i)))
