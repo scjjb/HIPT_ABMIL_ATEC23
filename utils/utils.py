@@ -37,6 +37,12 @@ def collate_MIL(batch):
 	label = torch.LongTensor([item[1] for item in batch])
 	return [img, label]
 
+def collate_MIL_coords(batch):
+        img = torch.cat([item[0] for item in batch], dim = 0)
+        label = torch.LongTensor([item[1] for item in batch])
+        coords = np.vstack([item[2] for item in batch])
+        return [img, label,coords]
+
 def collate_features(batch):
 	img = torch.cat([item[0] for item in batch], dim = 0)
 	coords = np.vstack([item[1] for item in batch])
@@ -45,7 +51,10 @@ def collate_features(batch):
 
 def get_simple_loader(dataset, batch_size=1, num_workers=1):
 	kwargs = {'num_workers': 4, 'pin_memory': False, 'num_workers': num_workers} if device.type == "cuda" else {}
-	loader = DataLoader(dataset, batch_size=batch_size, sampler = sampler.SequentialSampler(dataset), collate_fn = collate_MIL, **kwargs)
+	        if dataset.use_h5:
+            loader = DataLoader(dataset, batch_size=batch_size, sampler = sampler.SequentialSampler(dataset), collate_fn = collate_MIL_coords, **kwargs)
+        else:
+            loader = DataLoader(dataset, batch_size=batch_size, sampler = sampler.SequentialSampler(dataset), collate_fn = collate_MIL, **kwargs)
 	return loader 
 
 def get_split_loader(split_dataset, training = False, testing = False, weighted = False):
