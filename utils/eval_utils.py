@@ -13,6 +13,8 @@ from utils.core_utils import Accuracy_Logger
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
+import random
+from sklearn.neighbors import NearestNeighbors
 
 def initiate_model(args, ckpt_path):
     print('Init Model')    
