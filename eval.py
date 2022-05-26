@@ -162,7 +162,7 @@ ckpt_paths = [os.path.join(args.models_dir, 's_{}_checkpoint.pt'.format(fold)) f
 datasets_id = {'train': 0, 'val': 1, 'test': 2, 'all': -1}
 
 def main():
-  all_results = []
+    all_results = []
     all_auc = []
     all_acc = []
     for ckpt_idx in range(len(ckpt_paths)):
