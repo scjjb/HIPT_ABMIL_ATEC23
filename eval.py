@@ -42,7 +42,7 @@ parser.add_argument('--fold', type=int, default=-1, help='single fold to evaluat
 parser.add_argument('--micro_average', action='store_true', default=False, 
                     help='use micro_average instead of macro_avearge for multiclass AUC')
 parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all'], default='test')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_256_20x'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
@@ -88,6 +88,7 @@ if args.task == 'task_1_tumor_vs_normal':
                             patient_strat=False,
                             ignore=[])
 
+    
 elif args.task == 'custom':
     args.n_classes=5
     dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
@@ -98,6 +99,7 @@ elif args.task == 'custom':
                             patient_strat= False,
                             ignore=[])    
     
+    
 elif args.task == 'custom_1vsall':
     args.n_classes=2
     dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
@@ -107,6 +109,17 @@ elif args.task == 'custom_1vsall':
                             label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
                             patient_strat= False,
                             ignore=[])   
+    
+    
+elif args.task == 'custom_1vsall_256_20x':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                            shuffle = False,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                            patient_strat= False,
+                            ignore=[])
     
 
 elif args.task == 'task_2_tumor_subtyping':
