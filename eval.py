@@ -46,8 +46,10 @@ parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'tas
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
-
-
+parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster evaluation')
+parser.add_argument('--samples_per_epoch', type=int, default=100, help='number of patches to sample per sampling epoch')
+parser.add_argument('--sampling_epochs', type=int, default=10, help='number of sampling epochs')
+parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per epoch')
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
