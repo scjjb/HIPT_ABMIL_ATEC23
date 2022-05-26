@@ -51,7 +51,7 @@ def collate_features(batch):
 
 def get_simple_loader(dataset, batch_size=1, num_workers=1):
 	kwargs = {'num_workers': 4, 'pin_memory': False, 'num_workers': num_workers} if device.type == "cuda" else {}
-	        if dataset.use_h5:
+        if dataset.use_h5:
             loader = DataLoader(dataset, batch_size=batch_size, sampler = sampler.SequentialSampler(dataset), collate_fn = collate_MIL_coords, **kwargs)
         else:
             loader = DataLoader(dataset, batch_size=batch_size, sampler = sampler.SequentialSampler(dataset), collate_fn = collate_MIL, **kwargs)
