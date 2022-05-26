@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic_MIL_Dataset, save_splits
 import h5py
 from utils.eval_utils import *
+import cProfile, pstats
 
 # Training settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
@@ -42,6 +43,11 @@ parser.add_argument('--micro_average', action='store_true', default=False,
                     help='use micro_average instead of macro_avearge for multiclass AUC')
 parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all'], default='test')
 parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall'])
+parser.add_argument('--profile', action='store_true', default=False, 
+                    help='show profile of longest running code sections')
+parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
+
+
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -140,8 +146,8 @@ else:
 ckpt_paths = [os.path.join(args.models_dir, 's_{}_checkpoint.pt'.format(fold)) for fold in folds]
 datasets_id = {'train': 0, 'val': 1, 'test': 2, 'all': -1}
 
-if __name__ == "__main__":
-    all_results = []
+def main():
+  all_results = []
     all_auc = []
     all_acc = []
     for ckpt_idx in range(len(ckpt_paths)):
@@ -163,4 +169,19 @@ if __name__ == "__main__":
     else:
         save_name = 'summary.csv'
     final_df.to_csv(os.path.join(args.save_dir, save_name))
+
+    
+if __name__ == "__main__":
+    if args.profile:
+        profiler = cProfile.Profile()
+        profiler.enable()
+        main()
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('cumtime')
+        stats.print_stats(args.profile_rows)
+    else:
+        main()
+    
+    
+    
     
