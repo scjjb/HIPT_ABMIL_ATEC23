@@ -50,6 +50,13 @@ parser.add_argument('--sampling', action='store_true', default=False, help='samp
 parser.add_argument('--samples_per_epoch', type=int, default=100, help='number of patches to sample per sampling epoch')
 parser.add_argument('--sampling_epochs', type=int, default=10, help='number of sampling epochs')
 parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per epoch')
+parser.add_argument('--sampling_random_delta',type=float, default=0.02, help='reduction in sampling_random per epoch')
+parser.add_argument('--sampling_neighbors', type=int, default=20, help='number of nearest neighbors to consider when resampling')
+parser.add_argument('--sampling_neighbors_delta', type=int, default=0, help='reduction in number of nearest neighbors per epoch')
+parser.add_argument('--plot_sampling',action='store_true',default=False,help='Save an image showing the samples taken at each at last epoch')
+parser.add_argument('--plot_sampling_gif',action='store_true',default=False,help='Save a gif showing the evolution of the samples taken')
+parser.add_argument('--use_all_samples',action='store_true',default=False,help='Use every previous sample for final epoch')
+parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
