@@ -15,6 +15,10 @@ from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
 import random
 from sklearn.neighbors import NearestNeighbors
+import openslide
+
+import glob
+from PIL import Image
 
 def initiate_model(args, ckpt_path):
     print('Init Model')    
@@ -149,8 +153,9 @@ def summary_sampling(model, loader, args):
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
     labels=[]
-
-    for batch_idx, (data, label,coords) in enumerate(loader):
+    Y_probs=[]
+    all_logits=[]
+    for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
         X = np.array(coords)
@@ -158,37 +163,116 @@ def summary_sampling(model, loader, args):
         slide_id = slide_ids.iloc[batch_idx]
             
         ## First epoch (fully random sampling)
-        sample_idxs=random.choices(range(0,len(coords)), k=args.samples_per_epoch)
+        sample_idxs=random.sample(range(0,len(coords)), k=args.samples_per_epoch)
+        all_sample_idxs=sample_idxs
         data_sample=data[sample_idxs].to(device)
         with torch.no_grad():
             logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+
         attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+        all_attentions=attention_scores
         Y_hats.append(Y_hat)
         labels.append(label)
-
+        Y_probs.append(Y_prob)
+        all_logits.append(logits)
+        
         ## Find nearest neighbors of each patch to prepare for spatial resampling
-        nbrs = NearestNeighbors(n_neighbors=20, algorithm='ball_tree').fit(X)
-        _, indices = nbrs.kneighbors(X) ##can use distances, indicies to try different sampling approaches     
+        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        distances, indices = nbrs.kneighbors(X) ##can use distances, indicies to try different sampling approaches     
+
+        sampling_random=args.sampling_random
+
+        ## Subsequent epochs
+        neighbors=args.sampling_neighbors
+        sampling_weights=np.zeros(len(coords))
+        for epoch_count in range(args.sampling_epochs-1):
+            sampling_random=max(sampling_random-args.sampling_random_delta,0)
+            num_random=int(args.samples_per_epoch*sampling_random)
  
-        ## Subsequent epochs (some random, some non-random. note: make sure this can handle full random and full non-random)
-        for _ in range(args.sampling_epochs-1):
-            sampling_weights=np.zeros(len(coords))
+            ## Previously used random.choices which has replacement, sample does not
+            random_idxs=random.sample(range(0,len(coords)), k=num_random)
             
-            random_idxs=random.choices(range(0,len(coords)), k=num_random)
+            attention_scores=attention_scores/max(attention_scores)
+            all_attentions=all_attentions/max(all_attentions)
             
-            for i in range(min(len(attention_scores),len(coords))):
-                for index in indices[i]:
-                    sampling_weights[index]=sampling_weights[index]+max(20+np.log(attention_scores[i]),0)
-            nonrandom_idxs=random.choices(range(len(coords)),weights=sampling_weights,k=int(args.samples_per_epoch-num_random))
+            for i in range(len(sample_idxs)):              
+                ##Loop through neighbors of the previously sampled index
+                for index in indices[sample_idxs[i]][:neighbors]:
+                    ##Update the newly found weights
+                    sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
             
+            sampling_weights=sampling_weights/max(sampling_weights)
+            nonrandom_idxs=random.choices(range(0,len(coords)),weights=sampling_weights,k=int(args.samples_per_epoch-num_random))        
             sample_idxs=random_idxs+nonrandom_idxs
-            data_sample=data[sample_idxs].to(device)
+            all_sample_idxs=all_sample_idxs+sample_idxs
+            
+            if args.use_all_samples:
+                if epoch_count==args.sampling_epochs-2:
+                    data_sample=data[all_sample_idxs].to(device)
+                else:
+                    data_sample=data[sample_idxs].to(device)
+            else:
+                if epoch_count==args.sampling_epochs-2:
+                    sample_idxs=random.choices(range(0,len(coords)),weights=sampling_weights,k=int(args.final_sample_size))
+                    data_sample=data[sample_idxs].to(device)
+                else:
+                    data_sample=data[sample_idxs].to(device)
             
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+            all_attention=attention_scores
+            attention_scores=attention_scores[-args.samples_per_epoch:]
+            
             Y_hats.append(Y_hat)
             labels.append(label)
+            Y_probs.append(Y_prob)
+            all_logits.append(logits)
+            
+            neighbors=neighbors-args.sampling_neighbors_delta
+
+            if args.plot_sampling:          
+                if epoch_count == args.sampling_epochs-2:
+                
+                    #print(all_sample_idxs)
+                    if args.use_all_samples:
+                        sample_coords=coords[all_sample_idxs]
+                    else:
+                        sample_coords=coords[sample_idxs]
+                    print("Plotting epoch",epoch_count+1,"for slide",slide_id)
+                    thumbnail_size=1000
+                    slide = openslide.open_slide("../mount_point/"+slide_id+".svs")
+                    img = slide.get_thumbnail((thumbnail_size, thumbnail_size))
+                    plt.figure()
+                    plt.imshow(img)
+                    x_values,y_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()],[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+                    plt.scatter(x_values,y_values,s=6)
+                    plt.savefig('../mount_outputs/sampling_maps/{}_epoch{}.png'.format(slide_id,epoch_count+1), dpi=300)
+                    plt.close()
+
+            if args.plot_sampling_gif:
+                if args.use_all_samples:
+                    sample_coords=coords[all_sample_idxs]
+                else:
+                    sample_coords=coords[sample_idxs]
+                thumbnail_size=1000
+                slide = openslide.open_slide("../mount_point/"+slide_id+".svs")
+                img = slide.get_thumbnail((thumbnail_size, thumbnail_size))
+                plt.figure()
+                plt.imshow(img)
+                x_values,y_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()],[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+                plt.scatter(x_values,y_values,s=6)
+                plt.savefig('../mount_outputs/sampling_maps/{}_epoch{}.png'.format(slide_id,epoch_count+1), dpi=300)
+                plt.close()
+
+                if epoch_count == args.sampling_epochs-2:
+                    fp_in = "../mount_outputs/sampling_maps/{}_epoch*.png".format(slide_id)
+                    fp_out = "../mount_outputs/sampling_maps/{}.gif".format(slide_id)
+                    imgs = (Image.open(f) for f in sorted(glob.glob(fp_in)))
+                    img = next(imgs)  # extract first image from iterator
+                    img.save(fp=fp_out, format='GIF', append_images=imgs,
+                                     save_all=True, duration=200, loop=1)
+
 
         acc_logger.log(Y_hat, label)
                  
@@ -206,8 +290,29 @@ def summary_sampling(model, loader, args):
     
     all_errors=[]
     for i in range(args.sampling_epochs):
-        all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(labels[i::args.sampling_epochs])),4))
+        all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(labels[i::args.sampling_epochs])),3))
     
+    all_aucs=[]
+    for i in range(args.sampling_epochs):
+        if len(np.unique(all_labels)) == 2:
+            auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.sampling_epochs]])
+        else:
+            assert 1==2,"AUC scoring by epoch not implemented for multi-class classification yet"
+            binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
+            for class_idx in range(args.n_classes):
+                if class_idx in all_labels:
+                    fpr, tpr, _ = roc_curve(binary_labels[:, class_idx], all_probs[:, class_idx])
+                    aucs.append(auc(fpr, tpr))
+                else:
+                    aucs.append(float('nan'))
+                    if args.micro_average:
+                        binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
+                        fpr, tpr, _ = roc_curve(binary_labels.ravel(), all_probs.ravel())
+                        auc_score = auc(fpr, tpr)
+                    else:
+                        auc_score = np.nanmean(np.array(aucs))
+        all_aucs.append(round(auc_score,3))
+
     del data
     test_error /= len(loader)
 
@@ -234,4 +339,5 @@ def summary_sampling(model, loader, args):
         results_dict.update({'p_{}'.format(c): all_probs[:,c]})
     df = pd.DataFrame(results_dict)
     print("all errors: ",all_errors)
+    print("all aucs: ",all_aucs)
     return patient_results, test_error, auc_score, df, acc_logger
