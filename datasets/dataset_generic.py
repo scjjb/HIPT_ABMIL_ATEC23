@@ -350,7 +350,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
 				coords = hdf5_file['coords'][:]
 
 			features = torch.from_numpy(features)
-			return features, label, coords
+			return features, label, coords, slide_id
 
 
 class Generic_Split(Generic_MIL_Dataset):
