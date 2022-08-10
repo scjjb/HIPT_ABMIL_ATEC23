@@ -15,9 +15,11 @@ from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic
 import h5py
 from utils.eval_utils import *
 import cProfile, pstats
+from torch.profiler import profile, record_function, ProfilerActivity
 
 # Training settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
+parser.add_argument('--eval_features', action='store_true', default=False,help='dont turn this off, used for eval_features.py')
 parser.add_argument('--data_root_dir', type=str, default=None,
                     help='data directory')
 parser.add_argument('--results_dir', type=str, default='./results',
@@ -57,9 +59,15 @@ parser.add_argument('--plot_sampling',action='store_true',default=False,help='Sa
 parser.add_argument('--plot_sampling_gif',action='store_true',default=False,help='Save a gif showing the evolution of the samples taken')
 parser.add_argument('--use_all_samples',action='store_true',default=False,help='Use every previous sample for final epoch')
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
+parser.add_argument('--retain_best_samples',type=int,default=100,help='number of highest-attention previous samples to retain for final sample')
+parser.add_argument('--initial_grid_sample',action='store_true',default=False,help='Take the initial sample to be spaced out in a grid')
+parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
+parser.add_argument('--cpu_only',action='store_true',default=False,help='Use CPU only')
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if args.cpu_only:
+    device=torch.device("cpu")
 
 args.save_dir = os.path.join('./eval_results', 'EVAL_' + str(args.save_exp_code))
 args.models_dir = os.path.join(args.results_dir, str(args.models_exp_code))
@@ -139,16 +147,6 @@ elif args.task == 'task_2_tumor_subtyping':
                             patient_strat= False,
                             ignore=[])
 
-# elif args.task == 'tcga_kidney_cv':
-#     args.n_classes=3
-#     dataset = Generic_MIL_Dataset(csv_path = 'dataset_csv/tcga_kidney_clean.csv',
-#                             data_dir= os.path.join(args.data_root_dir, 'tcga_kidney_20x_features'),
-#                             shuffle = False, 
-#                             print_info = True,
-#                             label_dict = {'TCGA-KICH':0, 'TCGA-KIRC':1, 'TCGA-KIRP':2},
-#                             patient_strat= False,
-#                             ignore=['TCGA-SARC'])
-
 else:
     raise NotImplementedError
 
@@ -168,6 +166,18 @@ else:
 ckpt_paths = [os.path.join(args.models_dir, 's_{}_checkpoint.pt'.format(fold)) for fold in folds]
 datasets_id = {'train': 0, 'val': 1, 'test': 2, 'all': -1}
 
+
+def count_patches(dataset,args,ckpt):
+    loader = get_simple_loader(dataset)
+    patches=0
+    for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
+        patches=patches+len(data)
+        print(len(data))
+        print(data)
+        assert 1==2,"testing"
+    return patches
+
+  
 def main():
     all_results = []
     all_auc = []
@@ -198,6 +208,7 @@ if __name__ == "__main__":
         profiler = cProfile.Profile()
         profiler.enable()
         main()
+        print("max gpu mem usage:",torch.cuda.max_memory_allocated())
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumtime')
         stats.print_stats(args.profile_rows)
