@@ -17,9 +17,21 @@ from utils.eval_utils import *
 import cProfile, pstats
 from torch.profiler import profile, record_function, ProfilerActivity
 
+from datasets.dataset_h5 import Dataset_All_Bags
+
+from streamlit import legacy_caching as caching
+
 # Training settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
-parser.add_argument('--eval_features', action='store_true', default=False,help='dont turn this off, used for eval_features.py')
+parser.add_argument('--csv_path', type=str, default=None)
+parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
+parser.add_argument('--slide_ext', type=str, default= '.svs')
+parser.add_argument('--data_h5_dir', type=str, default=None)
+parser.add_argument('--data_slide_dir', type=str, default=None)
+parser.add_argument('--eval_features',default=True, action='store_false',help='extract features during sampling')
+parser.add_argument('--batch_size', type=int, default=256)
+parser.add_argument('--custom_downsample', type=int, default=1)
+parser.add_argument('--target_patch_size', type=int, default=-1)
 parser.add_argument('--data_root_dir', type=str, default=None,
                     help='data directory')
 parser.add_argument('--results_dir', type=str, default='./results',
@@ -62,11 +74,13 @@ parser.add_argument('--final_sample_size',type=int,default=100,help='number of p
 parser.add_argument('--retain_best_samples',type=int,default=100,help='number of highest-attention previous samples to retain for final sample')
 parser.add_argument('--initial_grid_sample',action='store_true',default=False,help='Take the initial sample to be spaced out in a grid')
 parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
+parser.add_argument('--label_dict',type=str,help='Convert labels to numbers')
 parser.add_argument('--cpu_only',action='store_true',default=False,help='Use CPU only')
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if args.cpu_only:
+    torch.cuda.is_available = lambda : False
     device=torch.device("cpu")
 
 args.save_dir = os.path.join('./eval_results', 'EVAL_' + str(args.save_exp_code))
@@ -166,7 +180,6 @@ else:
 ckpt_paths = [os.path.join(args.models_dir, 's_{}_checkpoint.pt'.format(fold)) for fold in folds]
 datasets_id = {'train': 0, 'val': 1, 'test': 2, 'all': -1}
 
-
 def count_patches(dataset,args,ckpt):
     loader = get_simple_loader(dataset)
     patches=0
@@ -177,33 +190,40 @@ def count_patches(dataset,args,ckpt):
         assert 1==2,"testing"
     return patches
 
-  
+
 def main():
     all_results = []
     all_auc = []
     all_acc = []
     for ckpt_idx in range(len(ckpt_paths)):
-        if datasets_id[args.split] < 0:
-            split_dataset = dataset
+        if args.eval_features:
+            split_dataset=Dataset_All_Bags(args.csv_path)
         else:
-            csv_path = '{}/splits_{}.csv'.format(args.splits_dir, folds[ckpt_idx])
-            datasets = dataset.return_splits(from_id=False, csv_path=csv_path)
-            split_dataset = datasets[datasets_id[args.split]]
+            if datasets_id[args.split] < 0:
+                split_dataset = dataset	
+            else:	
+                csv_path = '{}/splits_{}.csv'.format(args.splits_dir, folds[ckpt_idx])	
+                datasets = dataset.return_splits(from_id=False, csv_path=csv_path)	
+                split_dataset = datasets[datasets_id[args.split]]
+            
         model, patient_results, test_error, auc, df  = eval(split_dataset, args, ckpt_paths[ckpt_idx])
         all_results.append(all_results)
         all_auc.append(auc)
         all_acc.append(1-test_error)
-        df.to_csv(os.path.join(args.save_dir, 'fold_{}.csv'.format(folds[ckpt_idx])), index=False)
+        if not args.eval_features:
+            df.to_csv(os.path.join(args.save_dir, 'fold_{}.csv'.format(folds[ckpt_idx])), index=False)	
 
-    final_df = pd.DataFrame({'folds': folds, 'test_auc': all_auc, 'test_acc': all_acc})
-    if len(folds) != args.k:
-        save_name = 'summary_partial_{}_{}.csv'.format(folds[0], folds[-1])
-    else:
-        save_name = 'summary.csv'
-    final_df.to_csv(os.path.join(args.save_dir, save_name))
-
+            final_df = pd.DataFrame({'folds': folds, 'test_auc': all_auc, 'test_acc': all_acc})	
+            if len(folds) != args.k:	
+                save_name = 'summary_partial_{}_{}.csv'.format(folds[0], folds[-1])	
+            else:	
+                save_name = 'summary.csv'	
+            final_df.to_csv(os.path.join(args.save_dir, save_name))
     
 if __name__ == "__main__":
+    ## clear cache to allow timing experiments to be fair on subsequent runs
+    if args.eval_features:
+        caching.clear_cache()
     if args.profile:
         profiler = cProfile.Profile()
         profiler.enable()
@@ -214,7 +234,4 @@ if __name__ == "__main__":
         stats.print_stats(args.profile_rows)
     else:
         main()
-    
-    
-    
     
