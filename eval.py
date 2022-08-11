@@ -28,7 +28,7 @@ parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'
 parser.add_argument('--slide_ext', type=str, default= '.svs')
 parser.add_argument('--data_h5_dir', type=str, default=None)
 parser.add_argument('--data_slide_dir', type=str, default=None)
-parser.add_argument('--eval_features',default=True, action='store_false',help='extract features during sampling')
+parser.add_argument('--eval_features',default=False, action='store_true',help='extract features during sampling')
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--custom_downsample', type=int, default=1)
 parser.add_argument('--target_patch_size', type=int, default=-1)
