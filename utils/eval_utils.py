@@ -206,7 +206,10 @@ def summary_eval_features(model,dataset,args):
     for bag_candidate_idx in range(total):
         label=all_labels[bag_candidate_idx]
         label_tensor=all_labels_tensor[bag_candidate_idx]
-        slide_id = dataset[bag_candidate_idx].split(args.slide_ext)[0]
+        if isinstance(dataset[bag_candidate_idx],np.int64):
+            slide_id=str(dataset[bag_candidate_idx])
+        else:
+            slide_id = dataset[bag_candidate_idx].split(args.slide_ext)[0]
         bag_name = slide_id+'.h5'
         h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
         slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
