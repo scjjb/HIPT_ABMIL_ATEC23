@@ -248,7 +248,7 @@ parser.add_argument('--process_list',  type = str, default=None,
 
 if __name__ == '__main__':
 	args = parser.parse_args()
-
+	assert args.patch_size == args.step_size, "Are you sure you want a different patch and step size?"
 	patch_save_dir = os.path.join(args.save_dir, 'patches')
 	mask_save_dir = os.path.join(args.save_dir, 'masks')
 	stitch_save_dir = os.path.join(args.save_dir, 'stitches')
