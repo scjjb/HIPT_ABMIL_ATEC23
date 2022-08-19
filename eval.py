@@ -213,12 +213,12 @@ def main():
         if not args.eval_features:
             df.to_csv(os.path.join(args.save_dir, 'fold_{}.csv'.format(folds[ckpt_idx])), index=False)	
 
-            final_df = pd.DataFrame({'folds': folds, 'test_auc': all_auc, 'test_acc': all_acc})	
-            if len(folds) != args.k:	
-                save_name = 'summary_partial_{}_{}.csv'.format(folds[0], folds[-1])	
-            else:	
-                save_name = 'summary.csv'	
-            final_df.to_csv(os.path.join(args.save_dir, save_name))
+    final_df = pd.DataFrame({'folds': folds, 'test_auc': all_auc, 'test_acc': all_acc})	
+    if len(folds) != args.k:	
+        save_name = 'summary_partial_{}_{}.csv'.format(folds[0], folds[-1])	
+    else:	
+        save_name = 'summary.csv'	
+    final_df.to_csv(os.path.join(args.save_dir, save_name))
     
 if __name__ == "__main__":
     ## clear cache to allow timing experiments to be fair on subsequent runs
