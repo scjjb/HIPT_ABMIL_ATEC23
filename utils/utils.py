@@ -15,6 +15,8 @@ import torch.nn.functional as F
 import math
 from itertools import islice
 import collections
+from sklearn.model_selection import StratifiedKFold
+
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class SubsetSequentialSampler(Sampler):
@@ -50,8 +52,8 @@ def collate_features(batch):
         return [img, coords]
 
 
-def get_simple_loader(dataset, batch_size=1, num_workers=1):
-        kwargs = {'num_workers': 4, 'pin_memory': False, 'num_workers': num_workers} if device.type == "cuda" else {}
+def get_simple_loader(dataset, batch_size=1, num_workers=4):
+        kwargs = {'num_workers': num_workers, 'pin_memory': False} if device.type == "cuda" else {}
         collate=collate_MIL
         if hasattr(dataset,'use_h5'):
                 if dataset.use_h5:
@@ -104,7 +106,36 @@ def print_network(net):
         print('Total number of trainable parameters: %d' % num_params_train)
 
 
+
 def generate_split(cls_ids, val_num, test_num, samples, n_splits = 5,
+        seed = 7, label_frac = 1.0,  custom_test_ids = None):
+        
+        indices = np.arange(samples).astype(int)
+        
+        ## Generate independent folds
+        skf = StratifiedKFold(n_splits=n_splits,shuffle=True)
+        classes=np.zeros(len(indices))
+        for j in range(len(cls_ids)):
+            for index in cls_ids[j]:
+                classes[index]=j
+        skf.get_n_splits(indices, classes)
+        
+        test_sets=[]
+        train_sets=[]
+        for split in skf.split(indices,classes):
+            train_sets.append(split[0])
+            test_sets.append(split[1])
+
+        for i in range(len(test_sets)):
+            all_test_ids=test_sets[i]
+            all_val_ids=test_sets[(i+1)%n_splits]
+            sampled_train_ids=[x for x in train_sets[i] if x not in all_val_ids]
+
+            yield sampled_train_ids, all_val_ids, all_test_ids
+
+
+
+def generate_split_old(cls_ids, val_num, test_num, samples, n_splits = 5,
         seed = 7, label_frac = 1.0, custom_test_ids = None):
         indices = np.arange(samples).astype(int)
         
