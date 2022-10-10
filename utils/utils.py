@@ -65,7 +65,7 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
         """
                 return either the validation loader or training loader 
         """
-        kwargs = {'num_workers': 4} if device.type == "cuda" else {}
+        kwargs = {'num_workers': 1} if device.type == "cuda" else {}
         if not testing:
                 if training:
                         if weighted:
@@ -84,9 +84,9 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
 
 def get_optim(model, args):
         if args.opt == "adam":
-                optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.reg)
+                optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=float(args.lr), weight_decay=float(args.reg))
         elif args.opt == 'sgd':
-                optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, momentum=0.9, weight_decay=args.reg)
+                optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=float(args.lr), momentum=0.9, weight_decay=float(args.reg))
         else:
                 raise NotImplementedError
         return optimizer
@@ -114,10 +114,12 @@ def generate_split(cls_ids, val_num, test_num, samples, n_splits = 5,
         
         ## Generate independent folds
         skf = StratifiedKFold(n_splits=n_splits,shuffle=True)
+        
         classes=np.zeros(len(indices))
         for j in range(len(cls_ids)):
             for index in cls_ids[j]:
                 classes[index]=j
+
         skf.get_n_splits(indices, classes)
         
         test_sets=[]
@@ -130,6 +132,7 @@ def generate_split(cls_ids, val_num, test_num, samples, n_splits = 5,
             all_test_ids=test_sets[i]
             all_val_ids=test_sets[(i+1)%n_splits]
             sampled_train_ids=[x for x in train_sets[i] if x not in all_val_ids]
+              
 
             yield sampled_train_ids, all_val_ids, all_test_ids
 
