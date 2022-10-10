@@ -90,7 +90,7 @@ parser.add_argument('--continue_training', action='store_true', default=False, h
 parser.add_argument('--testing', action='store_true', default=False, help='debugging tool')
 parser.add_argument('--early_stopping', action='store_true', default=False, help='enable early stopping')
 parser.add_argument('--opt', type=str, choices = ['adam', 'sgd'], default='adam')
-parser.add_argument('--drop_out', action='store_true', default=False, help='enabel dropout (p=0.25)')
+parser.add_argument('--drop_out', type=float, default=0.25, help='dropout p=0.25')
 parser.add_argument('--bag_loss', type=str, choices=['svm', 'ce'], default='ce',
                      help='slide-level classification loss function (default: ce)')
 parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mil'], default='clam_sb', 
@@ -98,7 +98,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_256','custom_1vsall_256_10x','custom_1vsall_256_20x','custom_1vsall_256_20x_histo','custom_1vsall_512_fixed'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_256','custom_1vsall_256_10x','custom_1vsall_256_20x','custom_1vsall_256_20x_histo','custom_1vsall_512_fixed','custom_nsclc_256_20x','custom_1vsall_256_20x_aug','custom_1vsall_256_20x_1004','custom_1vsall_256_20x_1004_augonly'])
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
                      help='disable instance-level clustering')
@@ -235,11 +235,46 @@ elif args.task == 'custom_1vsall_256_20x_histo':
                                 ignore=[])
 
 
+elif args.task == 'custom_nsclc_256_20x':
+        args.n_classes=2
+        dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_nsclc.csv',
+                                data_dir= os.path.join(args.data_root_dir, 'nsclc'),
+                                shuffle = False,
+                                seed = args.seed,
+                                print_info = True,
+                                label_dict = {'luad':0,'lusc':1},
+                                patient_strat= False,
+                                ignore=[])
+
 
 elif args.task == 'custom_1vsall_512_fixed':
         args.n_classes=2
         dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
                                 data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_512_patches'),
+                                shuffle = False,
+                                seed = args.seed,
+                                print_info = True,
+                                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                                patient_strat= False,
+                                ignore=[])
+
+
+elif args.task == 'custom_1vsall_256_20x_1004':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_1004.csv',
+                                data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                                shuffle = False,
+                                seed = args.seed,
+                                print_info = True,
+                                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                                patient_strat= False,
+                                ignore=[])
+
+
+elif args.task == 'custom_1vsall_256_20x_1004_augonly':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_1004.csv',
+                                data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x/transforms'),
                                 shuffle = False,
                                 seed = args.seed,
                                 print_info = True,
@@ -256,6 +291,19 @@ elif args.task == 'task_2_tumor_subtyping':
                             seed = args.seed, 
                             print_info = True,
                             label_dict = {'subtype_1':0, 'subtype_2':1, 'subtype_3':2},
+                            patient_strat= False,
+                            ignore=[])
+
+
+
+elif args.task == 'custom_1vsall_256_20x_aug':
+    args.n_classes=2
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_aug.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
                             patient_strat= False,
                             ignore=[])
 
