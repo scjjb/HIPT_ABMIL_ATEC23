@@ -25,6 +25,7 @@ from functools import partial
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.schedulers import PopulationBasedTraining
 import ray
 
 
@@ -52,35 +53,67 @@ def main():
     
     
     config = {
-        "reg": tune.loguniform(1e-8,1e-3),
-        "lr": tune.loguniform(1e-5, 1e-1),
-        "drop_out": tune.choice([0.0,0.25,0.5,0.75])
+        "reg": tune.loguniform(1e-8,1e-2),
+        #"lr": tune.loguniform(1e-5, 1e-1),
+        #"lr": tune.loguniform(5e-4,5e-3),
+        "lr": tune.loguniform(5e-5,1e-2),
+        "drop_out": tune.uniform(0.0,0.9)
         }
     
+   
     output_file=pd.DataFrame([["reg","lr","drop_out","loss","auc","accuracy"]])
     output_file.to_csv(args.tuning_output_file,index=False)
+
 
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=2,
+        grace_period=4,
         max_t=20)
 
+    
+    # Scheduler for population based training: 
+    #scheduler = PopulationBasedTraining(
+    #    time_attr="training_iteration",
+    #    perturbation_interval=1,
+    #    burn_in_period=3,
+    #    metric="loss",
+    #    mode="min",
+    #    hyperparam_mutations={
+    #        # distribution for resampling
+    #        "lr": lambda: np.random.uniform(1e-4, 1e-2),
+    #        "reg": [1e-8,1e-7,1e-6,1e-5,1e-4,1e-3],
+    #        "drop_out": lambda: np.random.uniform(0.0,0.9)},
+    #                                     )
+
     reporter = CLIReporter(
-        metric_columns=["loss", "accuracy", "auc"])
+        metric_columns=["loss", "accuracy", "auc", "training_iteration","total time (s)"],
+        max_report_frequency=20,
+        max_progress_rows=50,
+        metric="loss",
+        mode="min",
+        sort_by_metric=True)
+
 
     folds = np.arange(start, end)
+
     i=folds[0]
     train_dataset, val_dataset, test_dataset = dataset.return_splits(from_id=False,
             csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     datasets = (train_dataset, val_dataset, test_dataset)
-    results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=30)
+    
+
+    results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 4, "gpu": 1},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=50)
+    ## Can also run with the following set up - the resources per trial allows two parallel experiments with the same GPU
+    #results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=8,stop={"training_iteration": 50})
+
     results.results_df.to_csv(args.tuning_output_file,index=False)
     best_trial = results.get_best_trial("loss", "min", "last")
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final loss: {}".format(best_trial.last_result["loss"]))
     print("Best trial final auc: {}".format(best_trial.last_result["auc"]))
     print("Best trial final acuracy: {}".format(best_trial.last_result["accuracy"]))
+    
 
 # Generic training settings
 parser = argparse.ArgumentParser(description='Configurations for WSI Training')
@@ -116,7 +149,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_256','custom_1vsall_256_10x','custom_1vsall_256_20x','custom_1vsall_256_20x_histo','custom_1vsall_512_fixed','custom_nsclc_256_20x','custom_1vsall_256_20x_aug'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_256_20x_998','custom_1vsall','custom_1vsall_256','custom_1vsall_256_10x','custom_1vsall_256_20x','custom_1vsall_256_20x_histo','custom_1vsall_512_fixed','custom_nsclc_256_20x','custom_1vsall_256_20x_aug','custom_1vsall_256_20x_998_aug','custom_1vsall_256_20x_1004','custom_1vsall_newonly'])
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
                      help='disable instance-level clustering')
@@ -193,6 +226,19 @@ elif args.task == 'custom':
                             patient_strat= False,
                             ignore=[])    
     
+
+elif args.task == 'custom_256_20x_998':
+    args.n_classes=5
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_998.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4},
+                            patient_strat= False,
+                            ignore=[])
+
+
 elif args.task == 'custom_1vsall':
     args.n_classes=2
     dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
@@ -233,6 +279,43 @@ elif args.task == 'custom_1vsall_256_10x':
 elif args.task == 'custom_1vsall_256_20x':
         args.n_classes=2
         dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+                                data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                                shuffle = False,
+                                seed = args.seed,
+                                print_info = True,
+                                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                                patient_strat= False,
+                                ignore=[])
+
+
+
+elif args.task == 'custom_1vsall_newonly':
+        args.n_classes=2
+        dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/all_sets_new349.csv',
+                            data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                            patient_strat= False,
+                            ignore=[])
+
+
+elif args.task == 'custom_1vsall_256_20x_1004':
+        args.n_classes=2
+        dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_1004.csv',
+                                data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                                shuffle = False,
+                                seed = args.seed,
+                                print_info = True,
+                                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                                patient_strat= False,
+                                ignore=[])
+
+
+elif args.task == 'custom_1vsall_256_20x_998_aug':
+        args.n_classes=2
+        dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_998_aug.csv',
                                 data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
                                 shuffle = False,
                                 seed = args.seed,
