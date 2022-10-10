@@ -23,6 +23,8 @@ import ast
 
 from datasets.dataset_h5 import Whole_Slide_Bag_FP
 from models.resnet_custom import resnet50_baseline
+from datasets.dataset_generic import Generic_MIL_Dataset
+
 
 def initiate_model(args, ckpt_path):
     print('Init Model')    
@@ -99,7 +101,6 @@ def eval(dataset, args, ckpt_path):
         dataset.load_from_h5(True)
         loader = get_simple_loader(dataset)
         patient_results, test_error, auc, df, _ = summary_sampling(model, loader, args)
-    
     else:
         loader = get_simple_loader(dataset)
         patient_results, test_error, auc, df, _ = summary(model, loader, args)
@@ -434,10 +435,36 @@ def summary_sampling(model, loader, args):
     labels=[]
     Y_probs=[]
     all_logits=[]
+    
+    if args.sampling_type=='textural':
+        if args.texture_model=='levit_128s':
+            texture_dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+                        data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
+                        shuffle = False,
+                        print_info = True,
+                        label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                        patient_strat= False,
+                        ignore=[])
+            slide_id_list = list(pd.read_csv('dataset_csv/set_all.csv')['slide_id'])
+
+
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
-        X = np.array(coords)
+        if args.sampling_type=='spatial':
+            X = np.array(coords)
+        elif args.sampling_type=='textural':
+            if args.texture_model=='resnet50':
+                X = np.array(data)
+            elif args.texture_model=='levit_128s':
+                print(slide_id[0][0])
+                texture_index=slide_id_list.index(slide_id[0][0])
+                levit_features=texture_dataset[texture_index][0]
+                assert len(levit_features)==len(data),"wrong features accessed, code must be broken"
+                X = np.array(levit_features)
+
+            else:
+                assert 1==2,'incorrect texture model chosen'
         data, label, coords = data.to(device), label.to(device), coords.to(device)
         slide_id = slide_ids.iloc[batch_idx]
         
@@ -503,7 +530,7 @@ def summary_sampling(model, loader, args):
         
         ## Find nearest neighbors of each patch to prepare for spatial resampling
         nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
-        distances, indices = nbrs.kneighbors(X) ##can use distances, indicies to try different sampling approaches     
+        distances, indices = nbrs.kneighbors(X[sample_idxs])
 
         sampling_random=args.sampling_random
 
@@ -516,19 +543,20 @@ def summary_sampling(model, loader, args):
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
             
+            ## make this a function for update_sample_weights
             if args.sampling_average:
-                for i in range(len(sample_idxs)):
+                for i in range(len(indices)):
                     ##Loop through neighbors of the previously sampled index
-                    for index in indices[sample_idxs[i]][:neighbors]:
+                    for index in indices[i][:neighbors]:
                         ##Update the newly found weights
                         if sampling_weights[index]>0:
                             sampling_weights[index]=(sampling_weights[index]+pow(attention_scores[i],0.15))/2
                         else:
                             sampling_weights[index]=pow(attention_scores[i],0.15)
             else:    
-                for i in range(len(sample_idxs)):              
+                for i in range(len(indices)):              
                     ##Loop through neighbors of the previously sampled index
-                    for index in indices[sample_idxs[i]][:neighbors]:
+                    for index in indices[i][:neighbors]:
                         ##Update the newly found weights
                         sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
             
@@ -541,7 +569,8 @@ def summary_sampling(model, loader, args):
             
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
-            
+            distances, indices = nbrs.kneighbors(X[sample_idxs])
+
             if args.use_all_samples:
                 if epoch_count==args.sampling_epochs-2:
                     for sample_idx in all_sample_idxs:
