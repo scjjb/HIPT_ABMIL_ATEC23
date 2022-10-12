@@ -68,8 +68,8 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=4,
-        max_t=20)
+        grace_period=8,
+        max_t=40)
 
     
     # Scheduler for population based training: 
@@ -88,8 +88,8 @@ def main():
 
     reporter = CLIReporter(
         metric_columns=["loss", "accuracy", "auc", "training_iteration","total time (s)"],
-        max_report_frequency=20,
-        max_progress_rows=50,
+        max_report_frequency=5,
+        max_progress_rows=20,
         metric="loss",
         mode="min",
         sort_by_metric=True)
@@ -103,7 +103,7 @@ def main():
     datasets = (train_dataset, val_dataset, test_dataset)
     
 
-    results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 4, "gpu": 1},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=50)
+    results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 1, "gpu": 0.1},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=300)
     ## Can also run with the following set up - the resources per trial allows two parallel experiments with the same GPU
     #results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=8,stop={"training_iteration": 50})
 

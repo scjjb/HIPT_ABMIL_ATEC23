@@ -338,7 +338,7 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         loss_value = loss.item()
         
         train_loss += loss_value
-        if (batch_idx + 1) % 20 == 0:
+        if (batch_idx + 1) % 1000 == 0:
             print('batch {}, loss: {:.4f}, label: {}, bag_size: {}'.format(batch_idx, loss_value, label.item(), data.size(0)))
            
         error = calculate_error(Y_hat, label)

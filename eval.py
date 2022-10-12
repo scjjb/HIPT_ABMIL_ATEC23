@@ -15,11 +15,11 @@ from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic
 import h5py
 from utils.eval_utils import *
 import cProfile, pstats
-from torch.profiler import profile, record_function, ProfilerActivity
+#from torch.profiler import profile, record_function, ProfilerActivity
 
 from datasets.dataset_h5 import Dataset_All_Bags
 
-from streamlit import legacy_caching as caching
+#from streamlit import legacy_caching as caching
 
 # Training settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
@@ -248,8 +248,8 @@ def main():
     
 if __name__ == "__main__":
     ## clear cache to allow timing experiments to be fair on subsequent runs
-    if args.eval_features:
-        caching.clear_cache()
+    #if args.eval_features:
+        #caching.clear_cache()
     if args.profile:
         profiler = cProfile.Profile()
         profiler.enable()
