@@ -70,7 +70,7 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
                 if training:
                         if weighted:
                                 weights = make_weights_for_balanced_classes_split(split_dataset)
-                                loader = DataLoader(split_dataset, batch_size=1, sampler = WeightedRandomSampler(weights, len(weights)), num_samples=128, collate_fn = collate_MIL, **kwargs)    
+                                loader = DataLoader(split_dataset, batch_size=1, sampler = WeightedRandomSampler(weights, num_samples=128), collate_fn = collate_MIL, **kwargs)    
                         else:
                                 loader = DataLoader(split_dataset, batch_size=1, sampler = RandomSampler(split_dataset), collate_fn = collate_MIL, **kwargs)
                 else:
