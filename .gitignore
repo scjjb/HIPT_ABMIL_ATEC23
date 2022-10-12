@@ -1,2 +1,6 @@
 **/.DS_Store
+results/
+eval_results/
+splits/
+tuning_results/
 __pycache__/
