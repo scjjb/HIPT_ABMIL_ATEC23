@@ -68,7 +68,7 @@ class EarlyStopping:
 
         score = -val_loss
         
-        if epoch >= min_epochs:
+        if epoch >= self.min_epochs:
             if self.best_score is None:
                 self.best_score = score
                 self.save_checkpoint(val_loss, model, ckpt_name)
