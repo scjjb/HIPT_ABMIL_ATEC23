@@ -70,6 +70,8 @@ parser.add_argument('--data_root_dir', type=str, default=None,
                     help='data directory')
 parser.add_argument('--max_epochs', type=int, default=200,
                     help='maximum number of epochs to train (default: 200)')
+parser.add_argument('--min_epochs', type=int, default=20,
+                    help='minimum number of epochs to train (default: 20)')
 parser.add_argument('--lr', type=float, default=1e-4,
                     help='learning rate (default: 0.0001)')
 parser.add_argument('--label_frac', type=float, default=1.0,
