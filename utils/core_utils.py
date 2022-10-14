@@ -126,7 +126,7 @@ def train(datasets, cur, args):
             loss_fn = loss_fn.cuda()
     else:
         print("using weighted cross entropy")
-        loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([0.3,0.7]).to(device))
+        loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([0.783,1.382]).to(device))
     print('Done!')
     
     print('\nInit Model...', end=' ')

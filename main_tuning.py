@@ -56,7 +56,7 @@ def main():
         "reg": tune.loguniform(1e-8,1e-2),
         #"lr": tune.loguniform(1e-5, 1e-1),
         #"lr": tune.loguniform(5e-4,5e-3),
-        "lr": tune.loguniform(5e-5,1e-2),
+        "lr": tune.loguniform(1e-6,1e-2),
         "drop_out": tune.uniform(0.0,0.9)
         }
     
@@ -68,8 +68,8 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=8,
-        max_t=40)
+        grace_period=10,
+        max_t=100)
 
     
     # Scheduler for population based training: 
