@@ -396,6 +396,8 @@ def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer
         early_stopping(epoch, val_loss, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
         #early_stopping(epoch, 1-auc, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
         if early_stopping.early_stop:
+            with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
+                f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
             return True
 
@@ -487,6 +489,8 @@ def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, w
         early_stopping(epoch, val_loss, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
         #early_stopping(epoch, 1-auc, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
         if early_stopping.early_stop:
+            with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
+                f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
             return True
 
