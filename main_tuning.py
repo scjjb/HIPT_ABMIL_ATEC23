@@ -54,10 +54,11 @@ def main():
     
     config = {
         "reg": tune.loguniform(1e-8,1e-2),
-        #"lr": tune.loguniform(1e-5, 1e-1),
-        #"lr": tune.loguniform(5e-4,5e-3),
-        "lr": tune.loguniform(1e-6,1e-2),
-        "drop_out": tune.uniform(0.0,0.9)
+        #"reg": tune.uniform(0.0001,0.0001000001),
+        "drop_out": tune.uniform(0.0,0.9),
+        "lr": tune.loguniform(5e-5,1e-3),
+        #"drop_out": tune.uniform(0.5,0.99)
+        
         }
     
    
@@ -68,7 +69,8 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=10,
+        grace_period=20,
+        reduction_factor=3,
         max_t=100)
 
     
@@ -149,7 +151,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_256_20x_998','custom_1vsall','custom_1vsall_256','custom_1vsall_256_10x','custom_1vsall_256_20x','custom_1vsall_256_20x_histo','custom_1vsall_512_fixed','custom_nsclc_256_20x','custom_1vsall_256_20x_aug','custom_1vsall_256_20x_998_aug','custom_1vsall_256_20x_1004','custom_1vsall_newonly'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_256_20x_998','custom_1vsall','custom_1vsall_256','custom_1vsall_256_10x','custom_1vsall_256_20x','custom_1vsall_256_20x_histo','custom_1vsall_512_fixed','custom_nsclc_256_20x','custom_1vsall_256_20x_aug','custom_1vsall_256_20x_998_aug','custom_1vsall_256_20x_998','custom_1vsall_newonly'])
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
                      help='disable instance-level clustering')
@@ -301,9 +303,9 @@ elif args.task == 'custom_1vsall_newonly':
                             ignore=[])
 
 
-elif args.task == 'custom_1vsall_256_20x_1004':
+elif args.task == 'custom_1vsall_256_20x_998':
         args.n_classes=2
-        dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_1004.csv',
+        dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_998.csv',
                                 data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
                                 shuffle = False,
                                 seed = args.seed,
