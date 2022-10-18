@@ -13,7 +13,7 @@ parser.add_argument('--seed', type=int, default=1,
 parser.add_argument('--unique_tests', default=False, action='store_true',help='ensure all test sets are unique')
 parser.add_argument('--k', type=int, default=10,
                     help='number of splits (default: 10)')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_998','custom_1vsall','custom_1vsall_1004','custom_1vsall_external','nsclc','custom_1vsall_aug','custom_1vsall_partaug','custom_1vsall_newonly','custom_1vsall_998_aug'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_998','custom_912','nsclc'])
 parser.add_argument('--val_frac', type=float, default= 0.1,
                     help='fraction of labels for validation (default: 0.1)')
 parser.add_argument('--test_frac', type=float, default= 0.1,
@@ -31,9 +31,9 @@ if args.task == 'task_1_tumor_vs_normal':
                             patient_strat=True,
                             ignore=[])
 
-elif args.task == 'custom':
+elif args.task == 'custom': ## Our first dataset of 655 WSIs
     args.n_classes=5
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all.csv',
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_655.csv',
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,
@@ -41,7 +41,7 @@ elif args.task == 'custom':
                             patient_strat= True,
                             ignore=[])    
 
-elif args.task == 'custom_998':
+elif args.task == 'custom_998': ## An expanded dataset of 998 WSIs
     args.n_classes=5
     dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_998.csv',
                             shuffle = False,
@@ -51,7 +51,7 @@ elif args.task == 'custom_998':
                             patient_strat= True,
                             ignore=[])
 
-elif args.task == 'custom_912':
+elif args.task == 'custom_912': ## The above 998 WSIs with biopsies removed, leaving only resections
     args.n_classes=5
     dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_912.csv',
                             shuffle = False,
