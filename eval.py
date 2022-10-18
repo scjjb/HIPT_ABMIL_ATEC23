@@ -55,7 +55,7 @@ parser.add_argument('--fold', type=int, default=-1, help='single fold to evaluat
 parser.add_argument('--micro_average', action='store_true', default=False, 
                     help='use micro_average instead of macro_avearge for multiclass AUC')
 parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all'], default='test')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_256_20x','custom_1vsall_256_20x_aug','custom_1vsall_256_20x_1004'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','custom','custom_1vsall','custom_1vsall_256_20x','custom_1vsall_256_20x_aug','custom_1vsall_256_20x_998'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
@@ -174,9 +174,9 @@ elif args.task == 'custom_1vsall_256_20x_aug':
                             ignore=[])
 
 
-elif args.task == 'custom_1vsall_256_20x_1004':
+elif args.task == 'custom_1vsall_256_20x_998':
     args.n_classes=2
-    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_1004.csv',
+    dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all_998.csv',
                             data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
                             shuffle = False,
                             print_info = True,

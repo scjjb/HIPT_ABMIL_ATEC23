@@ -51,37 +51,14 @@ elif args.task == 'custom_998':
                             patient_strat= True,
                             ignore=[])
 
-
-elif args.task == 'custom_1vsall':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all.csv',
-                            shuffle = False, 
-                            seed = args.seed, 
-                            print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
-                            patient_strat= True,
-                            ignore=[])     
-
-
-elif args.task == 'custom_1vsall_1004':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_1004.csv',
+elif args.task == 'custom_912':
+    args.n_classes=5
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_912.csv',
                             shuffle = False,
                             seed = args.seed,
                             print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4},
                             patient_strat= True,
-                            ignore=[])
-
-
-elif args.task == 'custom_1vsall_external':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_canada.csv',
-                            shuffle = False,
-                            seed = args.seed,
-                            print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1}, 
-                            patient_strat= True,   
                             ignore=[])
 
 
@@ -107,50 +84,6 @@ elif args.task == 'task_2_tumor_subtyping':
                             patient_voting='maj',
                             ignore=[])
 
-
-
-elif args.task == 'custom_1vsall_aug':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_aug.csv',
-                            shuffle = False,
-                            seed = args.seed,
-                            print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
-                            patient_strat= True,
-                            ignore=[])
-
-
-elif args.task == 'custom_1vsall_998_aug':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_998_aug.csv',
-                            shuffle = False,
-                            seed = args.seed,
-                            print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
-                            patient_strat= True,
-                            ignore=[])
-
-
-elif args.task == 'custom_1vsall_partaug':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_partaug.csv',
-                            shuffle = False,
-                            seed = args.seed,
-                            print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
-                            patient_strat= True,
-                            ignore=[])
-
-
-elif args.task == 'custom_1vsall_newonly':
-    args.n_classes=2
-    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/all_sets_new349.csv',
-                            shuffle = False,
-                            seed = args.seed,
-                            print_info = True,
-                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
-                            patient_strat= True,
-                            ignore=[])
 
 else:
     raise NotImplementedError
