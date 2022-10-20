@@ -284,7 +284,7 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         inst_logger.log_batch(inst_preds, inst_labels)
 
         train_loss += loss_value
-        if (batch_idx + 1) % 20 == 0:
+        if (batch_idx + 1) % 1000 == 0:
             print('batch {}, loss: {:.4f}, instance_loss: {:.4f}, weighted_loss: {:.4f}, '.format(batch_idx, loss_value, instance_loss_value, total_loss.item()) + 
                 'label: {}, bag_size: {}'.format(label.item(), data.size(0)))
 
