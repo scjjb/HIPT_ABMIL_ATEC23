@@ -312,6 +312,25 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 df = pd.concat([df_tr, df_v, df_t], axis=1) 
                 df.to_csv(filename, index = False)
 
+        
+        def count_by_class(self, split='train', csv_path=None):
+                assert csv_path 
+                all_splits = pd.read_csv(csv_path, dtype=self.slide_data['slide_id'].dtype)
+                chosen_split = self.get_split_from_df(all_splits, split)
+                print("chosen split:",chosen_split)
+                print("split type", split)
+                #count_list = np.zeros()
+                count_list = [len(cls_ids) for cls_ids in chosen_split.slide_cls_ids]
+
+                #for ids_list in range(len(chosen_split.slide_cls_ids)):
+                #    count_list[i] = count_list[i]+len(ids_list)
+                print("count list",count_list)
+                #print("slide_cls_ids:",chosen_split.slide_cls_ids)
+                #assert 1==2, "testing in datasets/dataset_generic.py line 324"
+
+                return count_list
+                                                                
+
 
 class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
         def __init__(self,

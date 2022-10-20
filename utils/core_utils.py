@@ -94,7 +94,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
-def train(datasets, cur, args):
+def train(datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
@@ -124,9 +124,15 @@ def train(datasets, cur, args):
         loss_fn = SmoothTop1SVM(n_classes = args.n_classes)
         if device.type == 'cuda':
             loss_fn = loss_fn.cuda()
+    elif args.bag_loss == 'balanced_ce':
+        class_counts_train=datasets[0].count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
+        print("class_count_train",class_counts_train)
+        ce_weights=[(1/class_counts[i])*(sum(class_counts)/len(class_counts)) for i in range(len(class_counts))]
+        print("weighting cross entropy with weights {}".format(ce_weights))
+        loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(ce_weights).to(device))
+        assert 1==2, "testing in utils/core_utils.py line 132"
     else:
-        print("using weighted cross entropy")
-        loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([0.783,1.382]).to(device))
+        loss_fn = nn.CrossEntropyLoss()
     print('Done!')
     
     print('\nInit Model...', end=' ')

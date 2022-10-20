@@ -103,9 +103,12 @@ def main():
     train_dataset, val_dataset, test_dataset = dataset.return_splits(from_id=False,
             csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     datasets = (train_dataset, val_dataset, test_dataset)
-    
+    ##class_counts to be used in balanced cross entropy if enabled
+    class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
+    class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
+    class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
 
-    results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 1, "gpu": 0.1},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=300)
+    results = tune.run(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),resources_per_trial={"cpu": 1, "gpu": 0.1},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=300)
     ## Can also run with the following set up - the resources per trial allows two parallel experiments with the same GPU
     #results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=8,stop={"training_iteration": 50})
 
