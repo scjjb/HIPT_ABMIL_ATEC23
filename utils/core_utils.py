@@ -125,12 +125,9 @@ def train(datasets, cur, class_counts, args):
         if device.type == 'cuda':
             loss_fn = loss_fn.cuda()
     elif args.bag_loss == 'balanced_ce':
-        class_counts_train=datasets[0].count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
-        print("class_count_train",class_counts_train)
         ce_weights=[(1/class_counts[i])*(sum(class_counts)/len(class_counts)) for i in range(len(class_counts))]
         print("weighting cross entropy with weights {}".format(ce_weights))
         loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(ce_weights).to(device))
-        assert 1==2, "testing in utils/core_utils.py line 132"
     else:
         loss_fn = nn.CrossEntropyLoss()
     print('Done!')
