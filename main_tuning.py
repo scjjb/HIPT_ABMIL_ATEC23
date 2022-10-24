@@ -69,9 +69,9 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=20,
+        grace_period=1,
         reduction_factor=3,
-        max_t=100)
+        max_t=30)
 
     
     # Scheduler for population based training: 
@@ -107,8 +107,8 @@ def main():
     class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
-
-    results = tune.run(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),resources_per_trial={"cpu": 1, "gpu": 0.1},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=300)
+    stopper=ray.tune.stopper.ExperimentPlateauStopper(metric="loss",mode="min")
+    results = tune.run(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),resources_per_trial={"cpu": 25, "gpu": 0.1},stop=stopper,config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=10)
     ## Can also run with the following set up - the resources per trial allows two parallel experiments with the same GPU
     #results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=8,stop={"training_iteration": 50})
 
