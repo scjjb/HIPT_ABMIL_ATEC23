@@ -61,8 +61,8 @@ def main():
         #"drop_out": tune.grid_search([0.6,0.8]),
         #"lr": tune.grid_search([5e-5,5e-4]),
         "lr": tune.loguniform(5e-5,1e-3),
-        "drop_out": tune.uniform(0.5,0.99)
-        
+        "drop_out": tune.uniform(0.5,0.99),
+        #"lr": tune.loguniform(1e-1,1),
         }
     
    
@@ -73,7 +73,7 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=20,
+        grace_period=40,
         reduction_factor=3,
         max_t=args.max_epochs)
 
@@ -111,7 +111,7 @@ def main():
     class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
-    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",)
+    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",grace_period=20)
     
     #run_config={stop=stopper}
     #tune_config={max_concurrent_trails=10}
@@ -129,13 +129,20 @@ def main():
 
     results_df=results.get_dataframe()
     results_df.to_csv(args.tuning_output_file,index=False)
-    best_trial = results.get_best_result("loss", "min")
+    #best_trial = results.get_best_result("loss", "min","last")
     #print("best trial:", best_trial)
+    #print(best_trial)
+    #print("Best trial config: {}".format(best_trial.config))
+    #print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
+    #print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
+    #print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
+
+    best_trial = results.get_best_result("loss", "min","all")
+    print("best trial:", best_trial)
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
     print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
     print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
-    
 
 # Generic training settings
 parser = argparse.ArgumentParser(description='Configurations for WSI Training')
