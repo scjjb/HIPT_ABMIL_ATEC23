@@ -89,7 +89,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
-def train(config, datasets, cur, class_counts, args):
+def train_sampling(config, datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
@@ -200,16 +200,16 @@ def train(config, datasets, cur, class_counts, args):
 
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
-            train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
-            stop, val_error, val_loss,val_auc = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
+            train_loop_clam_sampling(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
+            stop, val_error, val_loss,val_auc = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
             with tune.checkpoint_dir(epoch) as checkpoint_dir:
                 path = os.path.join(checkpoint_dir, "checkpoint")
                 torch.save((model.state_dict(), optimizer.state_dict()), path)
             tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
         else:
-            train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
-            stop,val_error, val_loss,val_auc = validate(cur, epoch, model, val_loader, args.n_classes, 
+            train_loop_sampling(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
+            stop,val_error, val_loss,val_auc = validate_sampling(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
             with tune.checkpoint_dir(epoch) as checkpoint_dir:
                 path = os.path.join(checkpoint_dir, "checkpoint")
@@ -256,7 +256,8 @@ def train(config, datasets, cur, class_counts, args):
     return results_dict, test_auc, val_auc, 1-test_error, 1-val_error 
 
 
-def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+    assert 1==2, "train_loop_clam_sampling not implemented yet"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -324,7 +325,8 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         writer.add_scalar('train/error', train_error, epoch)
         writer.add_scalar('train/clustering_loss', train_inst_loss, epoch)
 
-def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None):   
+def train_loop_sampling(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None):   
+    assert 1==2, "train_loop_sampling not implemented yet"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -370,7 +372,8 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         writer.add_scalar('train/error', train_error, epoch)
 
    
-def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
+def validate_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
+    assert 1==2, "validate_sampling not implemented yet"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -428,7 +431,8 @@ def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer
             return True,val_error, val_loss, auc
     return False,val_error, val_loss, auc
 
-def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir = None):
+def validate_clam_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir = None):
+    assert 1==2, "validate_clam_sampling not implemented yet"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
