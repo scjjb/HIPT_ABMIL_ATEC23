@@ -1,6 +1,9 @@
 import numpy as np
+import pandas as pd
 import torch
 from utils.utils import *
+from utils.sampling_utils import generate_sample_idxs, generate_features_array
+from datasets.dataset_generic import Generic_MIL_Dataset
 import os
 from datasets.dataset_generic import save_splits
 from models.model_mil import MIL_fc, MIL_fc_mc
@@ -95,15 +98,6 @@ class EarlyStopping:
                 print(f'Below min epochs. Validation loss changed ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
-
-
-def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_epoch,num_random):
-    nonrandom_idxs=list(np.random.choice(range(idxs_length),p=sampling_weights,size=int(samples_per_epoch-num_random),replace=False))
-    previous_samples=previous_samples+nonrandom_idxs
-    available_idxs=list(set(range(idxs_length))-set(previous_samples))
-    random_idxs=list(np.random.choice(available_idxs, size=num_random,replace=False))
-    sample_idxs=random_idxs+nonrandom_idxs
-    return sample_idxs
 
 
 def train_sampling(datasets, cur, class_counts, args):
@@ -320,7 +314,6 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
 
 def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer = None, loss_fn = None):   
     num_random=int(args.samples_per_epoch*args.sampling_random)
-    #assert 1==2,"train_loop_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -334,6 +327,8 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     all_logits=[]
     slide_ids = loader.dataset.slide_data['slide_id']
 
+    slide_id_list=[]
+    texture_dataset=[]
     if args.sampling_type=='textural':
         if args.texture_model=='levit_128s':
             texture_dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
@@ -344,24 +339,13 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
                 patient_strat= False,
                 ignore=[])
             slide_id_list = list(pd.read_csv('dataset_csv/set_all.csv')['slide_id'])
-
+        
     print('\n')
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
-        if args.sampling_type=='spatial':
-            X = np.array(coords)
-        elif args.sampling_type=='textural':
-            if args.texture_model=='resnet50':
-                X = np.array(data)
-            elif args.texture_model=='levit_128s':
-                print(slide_id[0][0])
-                texture_index=slide_id_list.index(slide_id[0][0])
-                levit_features=texture_dataset[texture_index][0]
-                assert len(levit_features)==len(data),"wrong features accessed, code must be broken"
-                X = np.array(levit_features)
-            else:
-                assert 1==2,'incorrect texture model chosen'
+        
+        X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
         data, label, coords = data.to(device), label.to(device), coords.to(device)
         slide_id = slide_ids.iloc[batch_idx]
 

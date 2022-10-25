@@ -119,6 +119,7 @@ parser.add_argument('--sampling_epochs', type=int, default=10, help='number of s
 parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per epoch')
 parser.add_argument('--sampling_neighbors', type=int, default=20, help='number of nearest neighbors to consider when resampling')
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
+parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
                      help='disable instance-level clustering')

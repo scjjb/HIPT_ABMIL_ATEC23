@@ -9,6 +9,7 @@ import os
 import pandas as pd
 from utils.utils import *
 from utils.core_utils import Accuracy_Logger
+from utils.sampling_utils import generate_sample_idxs, generate_features_array 
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
@@ -77,15 +78,6 @@ def extract_features(args,loader,feature_extraction_model,use_cpu):
     if use_cpu:
         all_features=all_features.to(device)
     return all_features
-
-
-def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_epoch,num_random):
-    nonrandom_idxs=list(np.random.choice(range(idxs_length),p=sampling_weights,size=int(samples_per_epoch-num_random),replace=False))
-    previous_samples=previous_samples+nonrandom_idxs
-    available_idxs=list(set(range(idxs_length))-set(previous_samples))
-    random_idxs=list(np.random.choice(available_idxs, size=num_random,replace=False))
-    sample_idxs=random_idxs+nonrandom_idxs
-    return sample_idxs
 
 
 def eval(dataset, args, ckpt_path):
@@ -451,20 +443,8 @@ def summary_sampling(model, loader, args):
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
-        if args.sampling_type=='spatial':
-            X = np.array(coords)
-        elif args.sampling_type=='textural':
-            if args.texture_model=='resnet50':
-                X = np.array(data)
-            elif args.texture_model=='levit_128s':
-                print(slide_id[0][0])
-                texture_index=slide_id_list.index(slide_id[0][0])
-                levit_features=texture_dataset[texture_index][0]
-                assert len(levit_features)==len(data),"wrong features accessed, code must be broken"
-                X = np.array(levit_features)
-
-            else:
-                assert 1==2,'incorrect texture model chosen'
+        
+        X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
         data, label, coords = data.to(device), label.to(device), coords.to(device)
         slide_id = slide_ids.iloc[batch_idx]
         
