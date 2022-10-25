@@ -24,8 +24,10 @@ import numpy as np
 from functools import partial
 from ray import tune
 from ray.tune import CLIReporter
+from ray.air.config import RunConfig
+#, TuneConfig
 from ray.tune.schedulers import ASHAScheduler
-from ray.tune.schedulers import PopulationBasedTraining
+#from ray.tune.schedulers import PopulationBasedTraining
 import ray
 
 
@@ -49,29 +51,31 @@ def main():
     all_val_acc = []
     
     
-    ray.init(num_gpus=1)
+    #ray.init(num_gpus=1)
     
     
-    config = {
+    search_space = {
         "reg": tune.loguniform(1e-8,1e-2),
+        #"reg": tune.grid_search([1e-5, 1e-4]),
         #"reg": tune.uniform(0.0001,0.0001000001),
-        "drop_out": tune.uniform(0.0,0.9),
+        #"drop_out": tune.grid_search([0.6,0.8]),
+        #"lr": tune.grid_search([5e-5,5e-4]),
         "lr": tune.loguniform(5e-5,1e-3),
-        #"drop_out": tune.uniform(0.5,0.99)
+        "drop_out": tune.uniform(0.5,0.99)
         
         }
     
    
-    output_file=pd.DataFrame([["reg","lr","drop_out","loss","auc","accuracy"]])
-    output_file.to_csv(args.tuning_output_file,index=False)
+    #output_file=pd.DataFrame([["reg","lr","drop_out","loss","auc","accuracy"]])
+    #output_file.to_csv(args.tuning_output_file,index=False)
 
 
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=1,
+        grace_period=20,
         reduction_factor=3,
-        max_t=30)
+        max_t=args.max_epochs)
 
     
     # Scheduler for population based training: 
@@ -107,17 +111,30 @@ def main():
     class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
-    stopper=ray.tune.stopper.ExperimentPlateauStopper(metric="loss",mode="min")
-    results = tune.run(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),resources_per_trial={"cpu": 25, "gpu": 0.1},stop=stopper,config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=10)
+    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",)
+    
+    #run_config={stop=stopper}
+    #tune_config={max_concurrent_trails=10}
+    #tuner = tune.Tuner(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args), param_space=search_space, run_config=run_config, tune_config=tune_config)
+    tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":10,"gpu":0.1}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
+    results = tuner.fit()
+    #print(results.get_best_result(metric="loss", mode="min").config)
+#ValueError: You passed a `metric` or `mode` argument to `tune.run()`, but the scheduler you are using was already instantiated with their own `metric` and `mode` parameters. Either remove the arguments from your scheduler or from your call to `tune.run()`
+    
+
+    #results = tune.run(tuner,resources_per_trial={"cpu": 25, "gpu": 0.1},stop=stopper, progress_reporter=reporter, num_samples=10)
+    
     ## Can also run with the following set up - the resources per trial allows two parallel experiments with the same GPU
     #results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=8,stop={"training_iteration": 50})
 
-    results.results_df.to_csv(args.tuning_output_file,index=False)
-    best_trial = results.get_best_trial("loss", "min", "last")
+    results_df=results.get_dataframe()
+    results_df.to_csv(args.tuning_output_file,index=False)
+    best_trial = results.get_best_result("loss", "min")
+    #print("best trial:", best_trial)
     print("Best trial config: {}".format(best_trial.config))
-    print("Best trial final loss: {}".format(best_trial.last_result["loss"]))
-    print("Best trial final auc: {}".format(best_trial.last_result["auc"]))
-    print("Best trial final acuracy: {}".format(best_trial.last_result["accuracy"]))
+    print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
+    print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
+    print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
     
 
 # Generic training settings
@@ -166,6 +183,7 @@ parser.add_argument('--bag_weight', type=float, default=0.7,
                     help='clam: weight coefficient for bag-level loss (default: 0.7)')
 parser.add_argument('--B', type=int, default=8, help='numbr of positive/negative patches to sample for clam')
 parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
+parser.add_argument('--num_samples',type=int,default=100,help="number of tuning samples")
 args = parser.parse_args()
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

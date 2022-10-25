@@ -46,11 +46,13 @@ def main(args):
         train_dataset, val_dataset, test_dataset = dataset.return_splits(from_id=False, 
                 csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
         
+        ##class_counts to be used in balanced cross entropy if enabled
+        class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
+        class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
+        class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
+        
         datasets = (train_dataset, val_dataset, test_dataset)
-        if args.sampling:
-            results, test_auc, val_auc, test_acc, val_acc  = train_sampling(datasets, i, args)
-        else:
-            results, test_auc, val_auc, test_acc, val_acc  = train(datasets, i, args)
+        results, test_auc, val_auc, test_acc, val_acc  = train(datasets, i, class_counts, args)
         all_test_auc.append(test_auc)
         all_val_auc.append(val_auc)
         all_test_acc.append(test_acc)
@@ -97,7 +99,7 @@ parser.add_argument('--testing', action='store_true', default=False, help='debug
 parser.add_argument('--early_stopping', action='store_true', default=False, help='enable early stopping')
 parser.add_argument('--opt', type=str, choices = ['adam', 'sgd'], default='adam')
 parser.add_argument('--drop_out', type=float, default=0.25, help='dropout p=0.25')
-parser.add_argument('--bag_loss', type=str, choices=['svm', 'ce'], default='ce',
+parser.add_argument('--bag_loss', type=str, choices=['svm', 'ce', 'balanced_ce'], default='ce',
                      help='slide-level classification loss function (default: ce)')
 parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mil'], default='clam_sb', 
                     help='type of model (default: clam_sb, clam w/ single attention branch)')

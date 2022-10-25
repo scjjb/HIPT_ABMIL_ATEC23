@@ -94,7 +94,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
-def train(datasets, cur, args):
+def train(datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
@@ -124,9 +124,12 @@ def train(datasets, cur, args):
         loss_fn = SmoothTop1SVM(n_classes = args.n_classes)
         if device.type == 'cuda':
             loss_fn = loss_fn.cuda()
+    elif args.bag_loss == 'balanced_ce':
+        ce_weights=[(1/class_counts[i])*(sum(class_counts)/len(class_counts)) for i in range(len(class_counts))]
+        print("weighting cross entropy with weights {}".format(ce_weights))
+        loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(ce_weights).to(device))
     else:
-        print("using weighted cross entropy")
-        loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([0.783,1.382]).to(device))
+        loss_fn = nn.CrossEntropyLoss()
     print('Done!')
     
     print('\nInit Model...', end=' ')
@@ -260,7 +263,7 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         inst_logger.log_batch(inst_preds, inst_labels)
 
         train_loss += loss_value
-        if (batch_idx + 1) % 20 == 0:
+        if (batch_idx + 1) % 1000 == 0:
             print('batch {}, loss: {:.4f}, instance_loss: {:.4f}, weighted_loss: {:.4f}, '.format(batch_idx, loss_value, instance_loss_value, total_loss.item()) + 
                 'label: {}, bag_size: {}'.format(label.item(), data.size(0)))
 
@@ -314,7 +317,7 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         loss_value = loss.item()
         
         train_loss += loss_value
-        if (batch_idx + 1) % 20 == 0:
+        if (batch_idx + 1) % 1000 == 0:
             print('batch {}, loss: {:.4f}, label: {}, bag_size: {}'.format(batch_idx, loss_value, label.item(), data.size(0)))
            
         error = calculate_error(Y_hat, label)
