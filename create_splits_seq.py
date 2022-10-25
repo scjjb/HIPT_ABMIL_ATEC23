@@ -13,7 +13,7 @@ parser.add_argument('--seed', type=int, default=1,
 parser.add_argument('--unique_tests', default=False, action='store_true',help='ensure all test sets are unique')
 parser.add_argument('--k', type=int, default=10,
                     help='number of splits (default: 10)')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_998','custom_912','custom_912_aug','nsclc'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_998','custom_912','custom_912_aug','custom_20','nsclc'])
 parser.add_argument('--val_frac', type=float, default= 0.1,
                     help='fraction of labels for validation (default: 0.1)')
 parser.add_argument('--test_frac', type=float, default= 0.1,
@@ -66,6 +66,17 @@ elif args.task == 'custom_912': ## The above 998 WSIs with biopsies removed, lea
 elif args.task == 'custom_912_aug': ## The above 912 with augmentations
     args.n_classes=5
     dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_912_aug.csv',
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4},
+                            patient_strat= True,
+                            ignore=[])
+
+
+elif args.task == 'custom_20': ## 20 WSIs for prototyping/testing
+    args.n_classes=5
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_all_20.csv',
                             shuffle = False,
                             seed = args.seed,
                             print_info = True,

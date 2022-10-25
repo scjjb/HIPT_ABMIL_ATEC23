@@ -66,19 +66,25 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
                 return either the validation loader or training loader 
         """
         kwargs = {'num_workers': 1} if device.type == "cuda" else {}
+        
+        collate=collate_MIL
+        if hasattr(split_dataset,'use_h5'):
+            if split_dataset.use_h5:
+                collate=collate_MIL_coords    
+        
         if not testing:
                 if training:
                         if weighted:
                                 weights = make_weights_for_balanced_classes_split(split_dataset)
-                                loader = DataLoader(split_dataset, batch_size=1, sampler = WeightedRandomSampler(weights, len(weights)), collate_fn = collate_MIL, **kwargs)    
+                                loader = DataLoader(split_dataset, batch_size=1, sampler = WeightedRandomSampler(weights, len(weights)), collate_fn = collate, **kwargs)    
                         else:
-                                loader = DataLoader(split_dataset, batch_size=1, sampler = RandomSampler(split_dataset), collate_fn = collate_MIL, **kwargs)
+                                loader = DataLoader(split_dataset, batch_size=1, sampler = RandomSampler(split_dataset), collate_fn = collate, **kwargs)
                 else:
-                        loader = DataLoader(split_dataset, batch_size=1, sampler = SequentialSampler(split_dataset), collate_fn = collate_MIL, **kwargs)
+                        loader = DataLoader(split_dataset, batch_size=1, sampler = SequentialSampler(split_dataset), collate_fn = collate, **kwargs)
         
         else:
                 ids = np.random.choice(np.arange(len(split_dataset), int(len(split_dataset)*0.1)), replace = False)
-                loader = DataLoader(split_dataset, batch_size=1, sampler = SubsetSequentialSampler(ids), collate_fn = collate_MIL, **kwargs )
+                loader = DataLoader(split_dataset, batch_size=1, sampler = SubsetSequentialSampler(ids), collate_fn = collate, **kwargs )
 
         return loader
 

@@ -8,6 +8,8 @@ from models.model_clam import CLAM_MB, CLAM_SB
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
+from sklearn.neighbors import NearestNeighbors
+
 
 class Accuracy_Logger(object):
     """Accuracy logger"""
@@ -94,10 +96,22 @@ class EarlyStopping:
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
+
+def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_epoch,num_random):
+    nonrandom_idxs=list(np.random.choice(range(idxs_length),p=sampling_weights,size=int(samples_per_epoch-num_random),replace=False))
+    previous_samples=previous_samples+nonrandom_idxs
+    available_idxs=list(set(range(idxs_length))-set(previous_samples))
+    random_idxs=list(np.random.choice(available_idxs, size=num_random,replace=False))
+    sample_idxs=random_idxs+nonrandom_idxs
+    return sample_idxs
+
+
 def train_sampling(datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
+    assert 0<=args.sampling_random<=1,"sampling_random needs to be between 0 and 1"
+
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):
@@ -112,6 +126,11 @@ def train_sampling(datasets, cur, class_counts, args):
 
     print('\nInit train/val/test splits...', end=' ')
     train_split, val_split, test_split = datasets
+    
+    train_split.load_from_h5(True)
+    #val_split.load_from_h5(True)
+    #test_split.load_from_h5(True)
+
     save_splits(datasets, ['train', 'val', 'test'], os.path.join(args.results_dir, 'splits_{}.csv'.format(cur)))
     print('Done!')
     print("Training on {} samples".format(len(train_split)))
@@ -196,7 +215,7 @@ def train_sampling(datasets, cur, class_counts, args):
             stop = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
                 early_stopping, writer, loss_fn, args.results_dir)
         else:
-            train_loop_sampling(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
+            train_loop_sampling(epoch, model, train_loader, optimizer, args.n_classes, args, writer, loss_fn)
             stop = validate_sampling(cur, epoch, model, val_loader, args.n_classes,
                 early_stopping, writer, loss_fn, args.results_dir)
         
@@ -299,19 +318,138 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         writer.add_scalar('train/error', train_error, epoch)
         writer.add_scalar('train/clustering_loss', train_inst_loss, epoch)
 
-def train_loop_sampling(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None):   
-    assert 1==2,"train_loop_sampling not yet implemented"
+def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer = None, loss_fn = None):   
+    num_random=int(args.samples_per_epoch*args.sampling_random)
+    #assert 1==2,"train_loop_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
     train_loss = 0.
     train_error = 0.
+    
+    ## Collecting Y_hats and labels to view performance across sampling epochs
+    Y_hats=[]
+    labels=[]
+    Y_probs=[]
+    all_logits=[]
+    slide_ids = loader.dataset.slide_data['slide_id']
+
+    if args.sampling_type=='textural':
+        if args.texture_model=='levit_128s':
+            texture_dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+                data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
+                shuffle = False,
+                print_info = True,
+                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                patient_strat= False,
+                ignore=[])
+            slide_id_list = list(pd.read_csv('dataset_csv/set_all.csv')['slide_id'])
 
     print('\n')
-    for batch_idx, (data, label) in enumerate(loader):
-        data, label = data.to(device), label.to(device)
+    for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
+        print("Processing WSI number ", batch_idx)
+        coords=torch.tensor(coords)
+        if args.sampling_type=='spatial':
+            X = np.array(coords)
+        elif args.sampling_type=='textural':
+            if args.texture_model=='resnet50':
+                X = np.array(data)
+            elif args.texture_model=='levit_128s':
+                print(slide_id[0][0])
+                texture_index=slide_id_list.index(slide_id[0][0])
+                levit_features=texture_dataset[texture_index][0]
+                assert len(levit_features)==len(data),"wrong features accessed, code must be broken"
+                X = np.array(levit_features)
+            else:
+                assert 1==2,'incorrect texture model chosen'
+        data, label, coords = data.to(device), label.to(device), coords.to(device)
+        slide_id = slide_ids.iloc[batch_idx]
 
-        logits, Y_prob, Y_hat, _, _ = model(data)
+        samples_per_epoch=args.samples_per_epoch
+        if args.samples_per_epoch>len(coords):
+            samples_per_epoch=len(coords)
+            print("full slide used")
+
+        ## First epoch (fully random sampling)
+        sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_epoch,replace=False))
+
+        all_sample_idxs=sample_idxs
+        data_sample=data[sample_idxs].to(device)
+        with torch.no_grad():
+            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+        
+        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+        attn_scores_list=raw_attention[0].cpu().tolist()
+
+        all_attentions=attention_scores
+        Y_hats.append(Y_hat)
+        labels.append(label)
+        Y_probs.append(Y_prob)
+        all_logits.append(logits)
+                                                 
+        ## Find nearest neighbors of each patch to prepare for spatial resampling
+        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        distances, indices = nbrs.kneighbors(X[sample_idxs])
+
+        sampling_random=args.sampling_random
+
+        ## Subsequent epochs
+        neighbors=args.sampling_neighbors
+        sampling_weights=np.zeros(len(coords))
+
+        for epoch_count in range(args.sampling_epochs-1):
+            #sampling_random=max(sampling_random-args.sampling_random_delta,0)
+            num_random=int(samples_per_epoch*sampling_random)
+            attention_scores=attention_scores/max(attention_scores)
+            all_attentions=all_attentions/max(all_attentions)
+            for i in range(len(indices)):              
+                ##Loop through neighbors of the previously sampled index
+                for index in indices[i][:neighbors]:
+                    ##Update the newly found weights
+                    sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
+            
+            ##remove previous sample weight to reduce repeats
+            for sample_idx in all_sample_idxs:
+                sampling_weights[sample_idx]=0
+                sampling_weights=sampling_weights/max(sampling_weights)
+                sampling_weights=sampling_weights/sum(sampling_weights)
+        
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+            all_sample_idxs=all_sample_idxs+sample_idxs
+            distances, indices = nbrs.kneighbors(X[sample_idxs])
+        
+            ## assuming args.use_all_samples here
+            if epoch_count==args.sampling_epochs-2:
+                for sample_idx in all_sample_idxs:
+                    sampling_weights[sample_idx]=0
+                sampling_weights=sampling_weights/max(sampling_weights)
+                sampling_weights=sampling_weights/sum(sampling_weights)
+                sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
+                all_sample_idxs=all_sample_idxs+sample_idxs
+                data_sample=data[all_sample_idxs].to(device)
+            else:
+                data_sample=data[sample_idxs].to(device)
+            
+            #with torch.no_grad():
+            #    logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+            #attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+            #all_attention=attention_scores
+            #attention_scores=attention_scores[-samples_per_epoch:]
+            #attn_scores_list=raw_attention[0].cpu().tolist()
+        
+        
+
+        logits, Y_prob, Y_hat, _, _ = model(data_sample)
+
+        ##############################################
+        ##############################################
+        #### NEED TO ADJUST CODE BELOW HERE ##########
+        ##############################################
+        ##############################################
+
+        
+        
+        #logits, Y_prob, Y_hat, _, _ = model(data)
         
         acc_logger.log(Y_hat, label)
         loss = loss_fn(logits, label)
@@ -347,7 +485,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, writer = Non
 
    
 def validate_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
-    assert 1==2,"validate_sampling not yet implemented"
+    #assert 1==2,"validate_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
