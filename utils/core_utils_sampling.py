@@ -331,14 +331,14 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     texture_dataset=[]
     if args.sampling_type=='textural':
         if args.texture_model=='levit_128s':
-            texture_dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+            texture_dataset =  Generic_MIL_Dataset(csv_path = args.csv_path,
                 data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
                 shuffle = False,
                 print_info = True,
-                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                label_dict = args.label_dict,
                 patient_strat= False,
                 ignore=[])
-            slide_id_list = list(pd.read_csv('dataset_csv/set_all.csv')['slide_id'])
+            slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
         
     print('\n')
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):

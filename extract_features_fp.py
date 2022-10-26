@@ -63,7 +63,7 @@ def compute_w_loader(file_path, output_path, wsi, model,
         dataset.update_sample(range(len(dataset)))
         x, y = dataset[0]
         
-	if args.model_type=='resnet50':
+        if args.model_type=='resnet50':
             kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}
         elif args.model_type=='levit_128s':
             kwargs = {'num_workers': 16, 'pin_memory': True} if device.type == "cuda" else {}
