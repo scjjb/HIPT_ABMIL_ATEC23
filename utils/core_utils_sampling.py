@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 from utils.utils import *
-from utils.sampling_utils import generate_sample_idxs, generate_features_array
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights
 from datasets.dataset_generic import Generic_MIL_Dataset
 import os
 from datasets.dataset_generic import save_splits
@@ -386,22 +386,25 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             num_random=int(samples_per_epoch*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
-            for i in range(len(indices)):              
-                ##Loop through neighbors of the previously sampled index
-                for index in indices[i][:neighbors]:
+            
+            
+            #for i in range(len(indices)):              
+            #    ##Loop through neighbors of the previously sampled index
+            #    for index in indices[i][:neighbors]:
                     ##Update the newly found weights
-                    sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
+            #        sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
             
             ##remove previous sample weight to reduce repeats
-            for sample_idx in all_sample_idxs:
-                sampling_weights[sample_idx]=0
-                sampling_weights=sampling_weights/max(sampling_weights)
-                sampling_weights=sampling_weights/sum(sampling_weights)
+            #for sample_idx in all_sample_idxs:
+            #    sampling_weights[sample_idx]=0
+            #    sampling_weights=sampling_weights/max(sampling_weights)
+            #    sampling_weights=sampling_weights/sum(sampling_weights)
         
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_average = False, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
-        
+            
             ## assuming args.use_all_samples here
             if epoch_count==args.sampling_epochs-2:
                 for sample_idx in all_sample_idxs:

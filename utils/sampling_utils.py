@@ -22,3 +22,33 @@ def generate_features_array(args, data, coords, slide_id, slide_id_list, texture
             assert len(levit_features)==len(data),"features length mismatch"
             X = np.array(levit_features)
     return X
+
+
+def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_average = False, repeats_allowed = False):
+    """
+    Updates the sampling weights of all patches by looping through the most recent sample and adjusting all neighbors weights
+    By default the weight of a patch is the maximum of its previous weight and the newly assigned weight, though sampling_average changes this to an average
+    power is a hyperparameter controlling how attention scores are smoothed as typically very close to 0 or 1
+    if repeated_allowed = False then weights for previous samples are set to 0
+    """
+    if sampling_average:
+        for i in range(len(indices)):
+            for index in indices[i][:neighbors]:
+                if sampling_weights[index]>0:
+                    sampling_weights[index]=(sampling_weights[index]+pow(attention_scores[i],power))/2
+                else:
+                    sampling_weights[index]=pow(attention_scores[i],power)
+    else:
+        for i in range(len(indices)):
+            for index in indices[i][:neighbors]:
+                sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
+
+    if not repeats_allowed:
+        for sample_idx in all_sample_idxs:
+            sampling_weights[sample_idx]=0
+
+    if normalise:
+        sampling_weights=sampling_weights/max(sampling_weights)
+        sampling_weights=sampling_weights/sum(sampling_weights)
+
+    return sampling_weights
