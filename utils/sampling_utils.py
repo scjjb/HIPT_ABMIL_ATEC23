@@ -73,6 +73,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
                     sampling_weights[index]=pow(attention_scores[i],power)
     elif sampling_update=='max':
         for i in range(len(indices)):
+            #print("indices:",len(indices))
             for index in indices[i][:neighbors]:
                 sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
 

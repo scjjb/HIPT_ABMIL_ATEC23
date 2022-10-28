@@ -320,6 +320,11 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     train_loss = 0.
     train_error = 0.
     
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
+
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
     labels=[]
@@ -387,7 +392,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
             
-            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_average = False, repeats_allowed = False)
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
