@@ -387,19 +387,6 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
             
-            
-            #for i in range(len(indices)):              
-            #    ##Loop through neighbors of the previously sampled index
-            #    for index in indices[i][:neighbors]:
-                    ##Update the newly found weights
-            #        sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
-            
-            ##remove previous sample weight to reduce repeats
-            #for sample_idx in all_sample_idxs:
-            #    sampling_weights[sample_idx]=0
-            #    sampling_weights=sampling_weights/max(sampling_weights)
-            #    sampling_weights=sampling_weights/sum(sampling_weights)
-        
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_average = False, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs

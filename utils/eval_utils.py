@@ -188,6 +188,11 @@ def summary_eval_features(model,dataset,args):
     
     num_random=int(args.samples_per_epoch*args.sampling_random)
 
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
+
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
     labels=[]
@@ -276,7 +281,7 @@ def summary_eval_features(model,dataset,args):
             all_attentions=all_attentions/max(all_attentions)
 
             sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                                            sampling_average=args.sampling_average,repeats_allowed=False)
+                                            sampling_update=sampling_update,repeats_allowed=False)
             sample_idxs=generate_sample_idxs(len(all_coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs   
             
@@ -402,6 +407,11 @@ def summary_sampling(model, loader, args):
     
     num_random=int(args.samples_per_epoch*args.sampling_random)
     
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
+
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
     labels=[]
@@ -435,36 +445,8 @@ def summary_sampling(model, loader, args):
             samples_per_epoch=len(coords)
             print("full slide used")
                 
-        if args.initial_grid_sample:
-            ## First epoch (random grid sampling)
-            x_coords=[x.item() for x,y in coords]
-            y_coords=[y.item() for x,y in coords]
-            min_x=min(x_coords)
-            max_x=max(x_coords)
-            min_y=min(y_coords)
-            max_y=max(y_coords)
-
-            num_of_splits=int(math.sqrt(samples_per_epoch))
-            x_borders=np.linspace(min_x,max_x+0.00001,num_of_splits+1)
-            y_borders=np.linspace(min_y,max_y+0.00001,num_of_splits+1)
-
-        
-            sample_idxs=[]
-            coords_splits=[[] for _ in range((num_of_splits+1)*(num_of_splits+1))]
-            for coord_idx, (x,y) in enumerate(coords):
-                x_border_idx=np.where(x_borders==max(x_borders[x_borders<=x.item()]))[0][0]
-                y_border_idx=np.where(y_borders==max(y_borders[y_borders<=y.item()]))[0][0]
-                coords_splits[(num_of_splits+1)*x_border_idx+y_border_idx].append(coord_idx)
-            for coords_in_split in coords_splits:
-                if len(coords_in_split)>0:
-                    sample_idxs=sample_idxs+list(np.random.choice(coords_in_split, size=1,replace=False))
-
-            if len(sample_idxs)<samples_per_epoch:
-                sample_idxs=sample_idxs+list(np.random.choice(range(0,len(coords)), size=samples_per_epoch-len(sample_idxs),replace=False))
-
-        else:
-            ## First epoch (fully random sampling)
-            sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_epoch,replace=False))
+        ##first epoch
+        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch=samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
         
         all_sample_idxs=sample_idxs
         data_sample=data[sample_idxs].to(device)
@@ -505,16 +487,10 @@ def summary_sampling(model, loader, args):
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
 
-            #sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-            #            sampling_average=args.sampling_average,repeats_allowed=False)             
-            #sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
-            #all_sample_idxs=all_sample_idxs+sample_idxs
-            #distances, indices = nbrs.kneighbors(X[sample_idxs])
-
             ## Take final sample if final sampling epoch reached
             if epoch_count==args.sampling_epochs-2:
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                            sampling_average=args.sampling_average,repeats_allowed=False)
+                            sampling_update=sampling_update,repeats_allowed=False)
                 if args.use_all_samples:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
                 else:
@@ -523,7 +499,7 @@ def summary_sampling(model, loader, args):
 
             else:
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                            sampling_average=args.sampling_average,repeats_allowed=False)
+                            sampling_update=sampling_update,repeats_allowed=False)
                 sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
                 distances, indices = nbrs.kneighbors(X[sample_idxs])
 
