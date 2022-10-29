@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 from utils.utils import *
-from utils.sampling_utils import generate_sample_idxs, generate_features_array
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights
 from datasets.dataset_generic import Generic_MIL_Dataset
 import os
 from datasets.dataset_generic import save_splits
@@ -320,6 +320,11 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     train_loss = 0.
     train_error = 0.
     
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
+
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
     labels=[]
@@ -331,14 +336,14 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     texture_dataset=[]
     if args.sampling_type=='textural':
         if args.texture_model=='levit_128s':
-            texture_dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+            texture_dataset =  Generic_MIL_Dataset(csv_path = args.csv_path,
                 data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
                 shuffle = False,
                 print_info = True,
-                label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                label_dict = args.label_dict,
                 patient_strat= False,
                 ignore=[])
-            slide_id_list = list(pd.read_csv('dataset_csv/set_all.csv')['slide_id'])
+            slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
         
     print('\n')
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
@@ -386,22 +391,12 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             num_random=int(samples_per_epoch*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
-            for i in range(len(indices)):              
-                ##Loop through neighbors of the previously sampled index
-                for index in indices[i][:neighbors]:
-                    ##Update the newly found weights
-                    sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
             
-            ##remove previous sample weight to reduce repeats
-            for sample_idx in all_sample_idxs:
-                sampling_weights[sample_idx]=0
-                sampling_weights=sampling_weights/max(sampling_weights)
-                sampling_weights=sampling_weights/sum(sampling_weights)
-        
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
-        
+            
             ## assuming args.use_all_samples here
             if epoch_count==args.sampling_epochs-2:
                 for sample_idx in all_sample_idxs:

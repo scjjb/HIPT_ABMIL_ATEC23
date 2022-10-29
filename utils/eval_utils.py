@@ -9,7 +9,7 @@ import os
 import pandas as pd
 from utils.utils import *
 from utils.core_utils import Accuracy_Logger
-from utils.sampling_utils import generate_sample_idxs, generate_features_array 
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights 
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
@@ -179,7 +179,7 @@ def summary_eval_features(model,dataset,args):
 
     all_probs = np.zeros((len(dataset), args.n_classes))
 
-    label_dict=ast.literal_eval(args.label_dict)
+    label_dict=args.label_dict
     all_labels = pd.read_csv(args.csv_path)['label']
     all_labels=[label_dict[key] for key in all_labels]
     all_labels_tensor=torch.Tensor(all_labels)
@@ -187,6 +187,11 @@ def summary_eval_features(model,dataset,args):
     patient_results = {}
     
     num_random=int(args.samples_per_epoch*args.sampling_random)
+
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
 
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
@@ -215,8 +220,6 @@ def summary_eval_features(model,dataset,args):
         all_coords=sampled_data.coords(len(sampled_data))
         
         X = np.array(all_coords)
-        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
-        distances, indices = nbrs.kneighbors(X)
         
         samples_per_epoch=args.samples_per_epoch
         if args.samples_per_epoch>len(all_coords):
@@ -262,6 +265,10 @@ def summary_eval_features(model,dataset,args):
         Y_probs.append(Y_prob)
         all_logits.append(logits)
 
+        ## Find nearest neighbors of each patch to prepare for spatial resampling
+        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        distances, indices = nbrs.kneighbors(X[sample_idxs])
+
         sampling_random=args.sampling_random
 
         ## Subsequent epochs
@@ -274,29 +281,8 @@ def summary_eval_features(model,dataset,args):
 
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
-
-            if args.sampling_average:
-                for i in range(len(sample_idxs)):
-                    ##Loop through neighbors 
-                    for index in indices[sample_idxs[i]][:neighbors]:
-                        ##Update the newly found weights
-                        if sampling_weights[index]>0:
-                            sampling_weights[index]=(sampling_weights[index]+pow(attention_scores[i],0.15))/2
-                        else:
-                            sampling_weights[index]=pow(attention_scores[i],0.15)
-
-            else:
-                for i in range(len(sample_idxs)):
-                    ##Loop through neighbors of the previously sampled index
-                    for index in indices[sample_idxs[i]][:neighbors]:
-                        #Update the newly found weights
-                        sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
-            
-            ##remove previous sample weight to remove repeats
-            for sample_idx in all_sample_idxs:
-                sampling_weights[sample_idx]=0
-            sampling_weights=sampling_weights/max(sampling_weights)
-            sampling_weights=sampling_weights/sum(sampling_weights)
+            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                                            sampling_update=sampling_update,repeats_allowed=False)
             sample_idxs=generate_sample_idxs(len(all_coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs   
             
@@ -309,6 +295,8 @@ def summary_eval_features(model,dataset,args):
                     final_sample_idxs=list(np.random.choice(range(0,len(all_coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
                     sample_idxs=list(set(sample_idxs+final_sample_idxs))
                     all_sample_idxs=list(set(all_sample_idxs+sample_idxs))
+                else:
+                    distances, indices = nbrs.kneighbors(X[sample_idxs])
                     
             else:
                 if epoch_count==args.sampling_epochs-2:
@@ -323,7 +311,8 @@ def summary_eval_features(model,dataset,args):
                         
                         sample_idxs=list(np.random.choice(range(0,len(all_coords)),p=sampling_weights,size=int(args.final_sample_size-len(best_sample_idxs)),replace=False))
                         sample_idxs=list(set(sample_idxs+best_sample_idxs))
-            
+                else:
+                    distances, indices = nbrs.kneighbors(X[sample_idxs])
             sampled_data.update_sample(sample_idxs)
             loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
 
@@ -422,22 +411,29 @@ def summary_sampling(model, loader, args):
     
     num_random=int(args.samples_per_epoch*args.sampling_random)
     
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
+
     ## Collecting Y_hats and labels to view performance across sampling epochs
     Y_hats=[]
     labels=[]
     Y_probs=[]
     all_logits=[]
     
+    slide_id_list=[]
+    texture_dataset = []
     if args.sampling_type=='textural':
         if args.texture_model=='levit_128s':
-            texture_dataset =  Generic_MIL_Dataset(csv_path = 'dataset_csv/set_all.csv',
+            texture_dataset =  Generic_MIL_Dataset(csv_path = args.csv_path,
                         data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
                         shuffle = False,
                         print_info = True,
-                        label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
+                        label_dict = args.label_dict,
                         patient_strat= False,
                         ignore=[])
-            slide_id_list = list(pd.read_csv('dataset_csv/set_all.csv')['slide_id'])
+            slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
 
 
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
@@ -453,36 +449,8 @@ def summary_sampling(model, loader, args):
             samples_per_epoch=len(coords)
             print("full slide used")
                 
-        if args.initial_grid_sample:
-            ## First epoch (random grid sampling)
-            x_coords=[x.item() for x,y in coords]
-            y_coords=[y.item() for x,y in coords]
-            min_x=min(x_coords)
-            max_x=max(x_coords)
-            min_y=min(y_coords)
-            max_y=max(y_coords)
-
-            num_of_splits=int(math.sqrt(samples_per_epoch))
-            x_borders=np.linspace(min_x,max_x+0.00001,num_of_splits+1)
-            y_borders=np.linspace(min_y,max_y+0.00001,num_of_splits+1)
-
-        
-            sample_idxs=[]
-            coords_splits=[[] for _ in range((num_of_splits+1)*(num_of_splits+1))]
-            for coord_idx, (x,y) in enumerate(coords):
-                x_border_idx=np.where(x_borders==max(x_borders[x_borders<=x.item()]))[0][0]
-                y_border_idx=np.where(y_borders==max(y_borders[y_borders<=y.item()]))[0][0]
-                coords_splits[(num_of_splits+1)*x_border_idx+y_border_idx].append(coord_idx)
-            for coords_in_split in coords_splits:
-                if len(coords_in_split)>0:
-                    sample_idxs=sample_idxs+list(np.random.choice(coords_in_split, size=1,replace=False))
-
-            if len(sample_idxs)<samples_per_epoch:
-                sample_idxs=sample_idxs+list(np.random.choice(range(0,len(coords)), size=samples_per_epoch-len(sample_idxs),replace=False))
-
-        else:
-            ## First epoch (fully random sampling)
-            sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_epoch,replace=False))
+        ##first epoch
+        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch=samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
         
         all_sample_idxs=sample_idxs
         data_sample=data[sample_idxs].to(device)
@@ -522,62 +490,26 @@ def summary_sampling(model, loader, args):
             num_random=int(samples_per_epoch*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
-            
-            ## make this a function for update_sample_weights
-            if args.sampling_average:
-                for i in range(len(indices)):
-                    ##Loop through neighbors of the previously sampled index
-                    for index in indices[i][:neighbors]:
-                        ##Update the newly found weights
-                        if sampling_weights[index]>0:
-                            sampling_weights[index]=(sampling_weights[index]+pow(attention_scores[i],0.15))/2
-                        else:
-                            sampling_weights[index]=pow(attention_scores[i],0.15)
-            else:    
-                for i in range(len(indices)):              
-                    ##Loop through neighbors of the previously sampled index
-                    for index in indices[i][:neighbors]:
-                        ##Update the newly found weights
-                        sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],0.15))
-            
-            
-            ##remove previous sample weight to reduce repeats
-            for sample_idx in all_sample_idxs:
-                sampling_weights[sample_idx]=0
-            sampling_weights=sampling_weights/max(sampling_weights)
-            sampling_weights=sampling_weights/sum(sampling_weights)
-            
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
-            all_sample_idxs=all_sample_idxs+sample_idxs
-            distances, indices = nbrs.kneighbors(X[sample_idxs])
 
-            if args.use_all_samples:
-                if epoch_count==args.sampling_epochs-2:
-                    for sample_idx in all_sample_idxs:
-                        sampling_weights[sample_idx]=0
-                    sampling_weights=sampling_weights/max(sampling_weights)
-                    sampling_weights=sampling_weights/sum(sampling_weights)
-                    sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
-                    all_sample_idxs=all_sample_idxs+sample_idxs
-                    data_sample=data[all_sample_idxs].to(device)
+            ## Take final sample if final sampling epoch reached
+            if epoch_count==args.sampling_epochs-2:
+                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                            sampling_update=sampling_update,repeats_allowed=False)
+                if args.use_all_samples:
+                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
                 else:
-                    data_sample=data[sample_idxs].to(device)
+                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+                all_sample_idxs=all_sample_idxs+sample_idxs
+
             else:
-                if epoch_count==args.sampling_epochs-2:
-                    if args.final_sample_size>len(coords):
-                        sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=len(coords),replace=False))
-                        print("final sample using all coords")
-                    else:    
-                        for sample_idx in all_sample_idxs:
-                            sampling_weights[sample_idx]=0
-                        sampling_weights=sampling_weights/max(sampling_weights)
-                        sampling_weights=sampling_weights/sum(sampling_weights)
-                        sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size-len(best_sample_idxs)),replace=False))
-                        sample_idxs=sample_idxs+best_sample_idxs
-                    data_sample=data[sample_idxs].to(device)
-                else:
-                    data_sample=data[sample_idxs].to(device)
-            
+                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                            sampling_update=sampling_update,repeats_allowed=False)
+                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+                distances, indices = nbrs.kneighbors(X[sample_idxs])
+
+            data_sample=data[sample_idxs].to(device)
+            all_sample_idxs=all_sample_idxs+sample_idxs
+        
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
