@@ -61,7 +61,7 @@ def main():
         #"drop_out": tune.grid_search([0.6,0.8]),
         #"lr": tune.grid_search([5e-5,5e-4]),
         "lr": tune.loguniform(5e-5,1e-3),
-        "drop_out": tune.uniform(0.5,0.99),
+        "drop_out": tune.uniform(0.0,0.99),
         #"lr": tune.loguniform(1e-1,1),
         }
     
@@ -73,7 +73,7 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=40,
+        grace_period=100,
         reduction_factor=3,
         max_t=args.max_epochs)
 
@@ -111,12 +111,12 @@ def main():
     class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
-    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",grace_period=20)
+    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=100)
     
     #run_config={stop=stopper}
     #tune_config={max_concurrent_trails=10}
     #tuner = tune.Tuner(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args), param_space=search_space, run_config=run_config, tune_config=tune_config)
-    tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":10,"gpu":0.1}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
+    tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":20,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
     results = tuner.fit()
     #print(results.get_best_result(metric="loss", mode="min").config)
 #ValueError: You passed a `metric` or `mode` argument to `tune.run()`, but the scheduler you are using was already instantiated with their own `metric` and `mode` parameters. Either remove the arguments from your scheduler or from your call to `tune.run()`
