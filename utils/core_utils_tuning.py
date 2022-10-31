@@ -104,6 +104,7 @@ def train(config, datasets, cur, class_counts, args):
     args.lr=config["lr"]
     args.reg=config["reg"]
     args.drop_out=config["drop_out"]
+    args.B=config["B"]
 
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):

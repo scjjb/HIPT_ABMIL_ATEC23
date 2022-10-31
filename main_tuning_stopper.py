@@ -60,6 +60,7 @@ def main():
         #"reg": tune.uniform(0.0001,0.0001000001),
         #"drop_out": tune.grid_search([0.6,0.8]),
         #"lr": tune.grid_search([5e-5,5e-4]),
+        "B": tune.choice([4,8,16,32,64]),
         "lr": tune.loguniform(5e-5,1e-3),
         "drop_out": tune.uniform(0.0,0.99),
         #"lr": tune.loguniform(1e-1,1),
@@ -73,7 +74,7 @@ def main():
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
-        grace_period=100,
+        grace_period=40,
         reduction_factor=3,
         max_t=args.max_epochs)
 
@@ -111,7 +112,7 @@ def main():
     class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
-    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=100)
+    stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=40)
     
     #run_config={stop=stopper}
     #tune_config={max_concurrent_trails=10}
