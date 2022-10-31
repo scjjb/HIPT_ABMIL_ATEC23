@@ -209,24 +209,28 @@ def summary_eval_features(model,dataset,args):
         sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
                             custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
 
-        all_coords=sampled_data.coords(len(sampled_data))
+        coords=sampled_data.coords(len(sampled_data))
         
-        X = np.array(all_coords)
+        X = np.array(coords)
         
         samples_per_epoch=args.samples_per_epoch
-        if args.samples_per_epoch>len(all_coords):
-            samples_per_epoch=len(all_coords)
+
+        ## first sample
+        if args.samples_per_epoch>len(coords):
+            samples_per_epoch=len(coords)
             print("full slide used")
-            sample_idxs=range(len(all_coords))
+            sample_idxs=range(len(coords))
             
         else:
-            sample_idxs=list(np.random.choice(range(0,len(all_coords)), size=samples_per_epoch,replace=False))
+            sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
+            #sample_idxs=list(np.random.choice(range(0,len(all_coords)), size=samples_per_epoch,replace=False))
         
         all_sample_idxs=sample_idxs
         sampled_data.update_sample(sample_idxs)
         loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
         
         if len(sample_idxs)>20000:
+            print("very large slide - using cpu. Disable this functionality if using beefy GPU (approx 8GB GPU ram or more)")
             all_features=extract_features(args,loader,feature_extraction_model,use_cpu=True)
         else:
             all_features=extract_features(args,loader,feature_extraction_model,use_cpu=False)
@@ -265,7 +269,7 @@ def summary_eval_features(model,dataset,args):
 
         ## Subsequent epochs
         neighbors=args.sampling_neighbors
-        sampling_weights=np.zeros(len(all_coords))
+        sampling_weights=np.zeros(len(coords))
     
         for epoch_count in range(args.sampling_epochs-1):
             sampling_random=max(sampling_random-args.sampling_random_delta,0)
@@ -273,41 +277,35 @@ def summary_eval_features(model,dataset,args):
 
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
-            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                                            sampling_update=sampling_update,repeats_allowed=False)
-            sample_idxs=generate_sample_idxs(len(all_coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
-            all_sample_idxs=all_sample_idxs+sample_idxs   
             
-            if args.use_all_samples:
-                if epoch_count==args.sampling_epochs-2:
-                    for sample_idx in all_sample_idxs:
-                        sampling_weights[sample_idx]=0
-                    sampling_weights=sampling_weights/max(sampling_weights)
-                    sampling_weights=sampling_weights/sum(sampling_weights)
-                    final_sample_idxs=list(np.random.choice(range(0,len(all_coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
-                    sample_idxs=list(set(sample_idxs+final_sample_idxs))
-                    all_sample_idxs=list(set(all_sample_idxs+sample_idxs))
+            ## Take final sample if final sampling epoch reached
+            if epoch_count==args.sampling_epochs-2:
+                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                                sampling_update=sampling_update,repeats_allowed=False)
+                if args.use_all_samples:
+                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
+                    sample_idxs=sample_idxs+all_sample_idxs
+                    all_sample_idxs=sample_idxs
+            
                 else:
-                    distances, indices = nbrs.kneighbors(X[sample_idxs])
-                    
+                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+                    all_sample_idxs=all_sample_idxs+sample_idxs
+                    sample_idxs=sample_idxs+best_sample_idxs
+
+                if args.plot_sampling:
+                    plot_sampling(slide_id,coords[sample_idxs],args)
+                if args.plot_sampling_gif:
+                    plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=True)
+            
             else:
-                if epoch_count==args.sampling_epochs-2:
-                    if args.final_sample_size>len(all_coords):
-                        sample_idxs=list(np.random.choice(range(0,len(all_coords)),p=sampling_weights,size=len(coords),replace=False))
-                        print("final sample using all coords")
-                    else:
-                        for sample_idx in all_sample_idxs:
-                            sampling_weights[sample_idx]=0
-                        sampling_weights=sampling_weights/max(sampling_weights)
-                        sampling_weights=sampling_weights/sum(sampling_weights)
-                        
-                        sample_idxs=list(np.random.choice(range(0,len(all_coords)),p=sampling_weights,size=int(args.final_sample_size-len(best_sample_idxs)),replace=False))
-                        sample_idxs=list(set(sample_idxs+best_sample_idxs))
-                else:
-                    distances, indices = nbrs.kneighbors(X[sample_idxs])
+                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                                sampling_update=sampling_update,repeats_allowed=False)
+                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+                distances, indices = nbrs.kneighbors(X[sample_idxs])
+
+            ## Use newly selected ids to first extract features, then to run model
             sampled_data.update_sample(sample_idxs)
             loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-
             all_features=extract_features(args,loader,feature_extraction_model,use_cpu=False)
             all_previous_features=torch.cat((all_previous_features,all_features))
                 
@@ -497,7 +495,7 @@ def summary_sampling(model, loader, args):
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
                     all_sample_idxs=all_sample_idxs+sample_idxs
                     sample_idxs=sample_idxs+best_sample_idxs
-                    assert 1==2, "fix best_sample_idxs"
+
                 if args.plot_sampling:
                     plot_sampling(slide_id,coords[sample_idxs],args)
                 if args.plot_sampling_gif:

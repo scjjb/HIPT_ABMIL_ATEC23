@@ -95,7 +95,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
 
 def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     print("Plotting slide {} with {} samples".format(slide_id,len(sample_coords)))
-    slide = openslide.open_slide("../mount_e/"+slide_id+".svs")
+    slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
     img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
     plt.figure()
     plt.imshow(img)
@@ -107,7 +107,7 @@ def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     
 def plot_sampling_gif(slide_id,sample_coords,args,epoch,slide=None,final_epoch=False,thumbnail_size=1000):
     if slide==None:
-        slide = openslide.open_slide("../mount_e/"+slide_id+".svs")
+        slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
     
     img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
     plt.figure()
