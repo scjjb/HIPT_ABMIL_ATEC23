@@ -1,5 +1,10 @@
 import numpy as np
 import math
+import openslide
+import matplotlib.pyplot as plt
+import glob
+from PIL import Image
+
 
 def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_epoch,num_random,grid=False,coords=None):
     if grid:
@@ -86,3 +91,41 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         sampling_weights=sampling_weights/sum(sampling_weights)
 
     return sampling_weights
+
+
+def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
+    print("Plotting slide {} with {} samples".format(slide_id,len(sample_coords)))
+    slide = openslide.open_slide("../mount_e/"+slide_id+".svs")
+    img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
+    plt.figure()
+    plt.imshow(img)
+    x_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    y_values=[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    plt.scatter(x_values,y_values,s=6)
+    plt.savefig('../mount_outputs/sampling_maps/{}.png'.format(slide_id), dpi=300)
+    plt.close()
+    
+def plot_sampling_gif(slide_id,sample_coords,args,epoch,slide=None,final_epoch=False,thumbnail_size=1000):
+    if slide==None:
+        slide = openslide.open_slide("../mount_e/"+slide_id+".svs")
+    
+    img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
+    plt.figure()
+    plt.imshow(img)
+    x_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    y_values=[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    plt.scatter(x_values,y_values,s=6)
+    plt.savefig('../mount_outputs/sampling_maps/{}_epoch{}.png'.format(slide_id,epoch), dpi=300)
+    plt.close()
+    
+    if final_epoch:
+        print("Plotting gif for slide {} over {} epochs".format(slide_id,epoch+1))
+        fp_in = "../mount_outputs/sampling_maps/{}_epoch*.png".format(slide_id)
+        fp_out = "../mount_outputs/sampling_maps/{}.gif".format(slide_id)
+        imgs = (Image.open(f) for f in sorted(glob.glob(fp_in)))
+        img = next(imgs)  # extract first image from iterator
+        img.save(fp=fp_out, format='GIF', append_images=imgs,save_all=True, duration=200, loop=1)
+
+    return slide
+
+

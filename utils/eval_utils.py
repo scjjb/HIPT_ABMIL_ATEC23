@@ -1,26 +1,18 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from models.model_mil import MIL_fc, MIL_fc_mc
 from models.model_clam import CLAM_SB, CLAM_MB
-import pdb
 import os
 import pandas as pd
 from utils.utils import *
 from utils.core_utils import Accuracy_Logger
-from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights 
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights, plot_sampling, plot_sampling_gif
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import label_binarize
-import matplotlib.pyplot as plt
 import random
 from sklearn.neighbors import NearestNeighbors
 import openslide
-import math
-
-import glob
-from PIL import Image
-import ast
 
 from datasets.dataset_h5 import Whole_Slide_Bag_FP
 from models.resnet_custom import resnet50_baseline
@@ -469,6 +461,8 @@ def summary_sampling(model, loader, args):
                 best_sample_idxs=[sample_idxs[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                 best_attn_scores=[attn_scores_list[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                    
+        if args.plot_sampling_gif:
+            slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_epoch=False)
 
         all_attentions=attention_scores
         Y_hats.append(Y_hat)
@@ -497,15 +491,28 @@ def summary_sampling(model, loader, args):
                             sampling_update=sampling_update,repeats_allowed=False)
                 if args.use_all_samples:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
+                    sample_idxs=sample_idxs+all_sample_idxs
+                    all_sample_idxs=sample_idxs
                 else:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
-                all_sample_idxs=all_sample_idxs+sample_idxs
-
+                    all_sample_idxs=all_sample_idxs+sample_idxs
+                    sample_idxs=sample_idxs+best_sample_idxs
+                    assert 1==2, "fix best_sample_idxs"
+                if args.plot_sampling:
+                    plot_sampling(slide_id,coords[sample_idxs],args)
+                if args.plot_sampling_gif:
+                    plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=True)
             else:
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
                             sampling_update=sampling_update,repeats_allowed=False)
                 sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
                 distances, indices = nbrs.kneighbors(X[sample_idxs])
+                
+                if args.plot_sampling_gif:
+                    if args.use_all_samples:
+                        plot_sampling_gif(slide_id,coords[all_sample_idxs+sample_idxs],args,epoch_count+1,slide,final_epoch=False)
+                    else:
+                        plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=False)
 
             data_sample=data[sample_idxs].to(device)
             all_sample_idxs=all_sample_idxs+sample_idxs
@@ -537,47 +544,6 @@ def summary_sampling(model, loader, args):
             all_logits.append(logits)
             
             neighbors=neighbors-args.sampling_neighbors_delta
-
-            if args.plot_sampling:          
-                if epoch_count == args.sampling_epochs-2:
-                    if args.use_all_samples:
-                        sample_coords=coords[all_sample_idxs]
-                    else:
-                        sample_coords=coords[sample_idxs]
-                        
-                    print("Plotting epoch",epoch_count+1,"for slide",slide_id)
-                    thumbnail_size=1000
-                    slide = openslide.open_slide("../mount_point/"+slide_id+".svs")
-                    img = slide.get_thumbnail((thumbnail_size, thumbnail_size))
-                    plt.figure()
-                    plt.imshow(img)
-                    x_values,y_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()],[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
-                    plt.scatter(x_values,y_values,s=6)
-                    plt.savefig('../mount_outputs/sampling_maps/{}_epoch{}.png'.format(slide_id,epoch_count+1), dpi=300)
-                    plt.close()
-
-            if args.plot_sampling_gif:
-                if args.use_all_samples:
-                    sample_coords=coords[all_sample_idxs]
-                else:
-                    sample_coords=coords[sample_idxs]
-                thumbnail_size=1000
-                slide = openslide.open_slide("../mount_point/"+slide_id+".svs")
-                img = slide.get_thumbnail((thumbnail_size, thumbnail_size))
-                plt.figure()
-                plt.imshow(img)
-                x_values,y_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()],[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
-                plt.scatter(x_values,y_values,s=6)
-                plt.savefig('../mount_outputs/sampling_maps/{}_epoch{}.png'.format(slide_id,epoch_count+1), dpi=300)
-                plt.close()
-
-                if epoch_count == args.sampling_epochs-2:
-                    fp_in = "../mount_outputs/sampling_maps/{}_epoch*.png".format(slide_id)
-                    fp_out = "../mount_outputs/sampling_maps/{}.gif".format(slide_id)
-                    imgs = (Image.open(f) for f in sorted(glob.glob(fp_in)))
-                    img = next(imgs)  # extract first image from iterator
-                    img.save(fp=fp_out, format='GIF', append_images=imgs,
-                                     save_all=True, duration=200, loop=1)
 
         acc_logger.log(Y_hat, label)
                  
