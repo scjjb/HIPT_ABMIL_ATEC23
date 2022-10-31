@@ -223,7 +223,6 @@ def summary_eval_features(model,dataset,args):
             
         else:
             sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
-            #sample_idxs=list(np.random.choice(range(0,len(all_coords)), size=samples_per_epoch,replace=False))
         
         all_sample_idxs=sample_idxs
         sampled_data.update_sample(sample_idxs)
@@ -256,6 +255,9 @@ def summary_eval_features(model,dataset,args):
                 best_sample_idxs=[sample_idxs[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                 best_attn_scores=[attn_scores_list[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
 
+        if args.plot_sampling_gif:
+            slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_epoch=False)
+
         all_attentions=attention_scores
         Y_hats.append(Y_hat)
         Y_probs.append(Y_prob)
@@ -284,11 +286,13 @@ def summary_eval_features(model,dataset,args):
                                 sampling_update=sampling_update,repeats_allowed=False)
                 if args.use_all_samples:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
+                    sampled_data.update_sample(sample_idxs)
                     sample_idxs=sample_idxs+all_sample_idxs
                     all_sample_idxs=sample_idxs
             
                 else:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+                    sampled_data.update_sample(sample_idxs)
                     all_sample_idxs=all_sample_idxs+sample_idxs
                     sample_idxs=sample_idxs+best_sample_idxs
 
@@ -301,10 +305,16 @@ def summary_eval_features(model,dataset,args):
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
                                 sampling_update=sampling_update,repeats_allowed=False)
                 sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+                sampled_data.update_sample(sample_idxs)
+                all_sample_idxs=all_sample_idxs+sample_idxs
                 distances, indices = nbrs.kneighbors(X[sample_idxs])
+                if args.plot_sampling_gif:
+                    if args.use_all_samples:
+                        plot_sampling_gif(slide_id,coords[all_sample_idxs],args,epoch_count+1,slide,final_epoch=False)
+                    else:
+                        plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=False)
 
             ## Use newly selected ids to first extract features, then to run model
-            sampled_data.update_sample(sample_idxs)
             loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
             all_features=extract_features(args,loader,feature_extraction_model,use_cpu=False)
             all_previous_features=torch.cat((all_previous_features,all_features))
@@ -333,7 +343,7 @@ def summary_eval_features(model,dataset,args):
                     attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
                     best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                     best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-        
+
             Y_hats.append(Y_hat)
             labels.append(label)
             Y_probs.append(Y_prob)
@@ -505,15 +515,15 @@ def summary_sampling(model, loader, args):
                             sampling_update=sampling_update,repeats_allowed=False)
                 sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
                 distances, indices = nbrs.kneighbors(X[sample_idxs])
+                all_sample_idxs=all_sample_idxs+sample_idxs
                 
                 if args.plot_sampling_gif:
                     if args.use_all_samples:
-                        plot_sampling_gif(slide_id,coords[all_sample_idxs+sample_idxs],args,epoch_count+1,slide,final_epoch=False)
+                        plot_sampling_gif(slide_id,coords[all_sample_idxs],args,epoch_count+1,slide,final_epoch=False)
                     else:
                         plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=False)
 
             data_sample=data[sample_idxs].to(device)
-            all_sample_idxs=all_sample_idxs+sample_idxs
         
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
