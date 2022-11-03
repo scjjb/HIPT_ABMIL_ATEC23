@@ -242,8 +242,8 @@ print('\nLoad Dataset')
 if args.task == 'ovarian_5class':
     args.n_classes=5
     args.label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4}
-        if args.model_type in ['clam_sb', 'clam_mb']:
-            assert args.subtyping
+    if args.model_type in ['clam_sb', 'clam_mb']:
+        assert args.subtyping
 
 elif args.task == 'ovarian_1vsall':
     args.n_classes=2
