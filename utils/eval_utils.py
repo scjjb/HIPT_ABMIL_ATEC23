@@ -78,13 +78,13 @@ def eval(dataset, args, ckpt_path):
     print('Init Loaders')
     
     if args.eval_features:
-        patient_results, test_error, auc, df, _ = summary_eval_features(model,dataset,args)
+        patient_results, test_error, auc, df, _ = summary_sampling(model,dataset,args)
 
     elif args.sampling:
         assert 0<=args.sampling_random<=1,"sampling_random needs to be between 0 and 1"
         dataset.load_from_h5(True)
-        loader = get_simple_loader(dataset)
-        patient_results, test_error, auc, df, _ = summary_sampling(model, loader, args)
+        #loader = get_simple_loader(dataset)
+        patient_results, test_error, auc, df, _ = summary_sampling(model,dataset, args)
     else:
         loader = get_simple_loader(dataset)
         patient_results, test_error, auc, df, _ = summary(model, loader, args)
@@ -156,29 +156,14 @@ def summary(model, loader, args):
     return patient_results, test_error, auc_score, df, acc_logger
 
 
-def summary_eval_features(model,dataset,args):
+def summary_sampling(model, dataset, args):
     model.eval()
+    num_slides=len(dataset)
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if args.cpu_only:
         device=torch.device("cpu")
-    feature_extraction_model=resnet50_baseline(pretrained=True,dataset=args.pretraining_dataset)
-    feature_extraction_model = feature_extraction_model.to(device)
-    
-    acc_logger = Accuracy_Logger(n_classes=args.n_classes)
-
     test_loss = 0.
     test_error = 0.
-
-    all_probs = np.zeros((len(dataset), args.n_classes))
-
-    label_dict=args.label_dict
-    all_labels = pd.read_csv(args.csv_path)['label']
-    all_labels=[label_dict[key] for key in all_labels]
-    all_labels_tensor=torch.Tensor(all_labels)
-    all_preds = np.zeros(len(dataset))
-    patient_results = {}
-    
-    num_random=int(args.samples_per_epoch*args.sampling_random)
 
     if args.sampling_average:
         sampling_update='average'
@@ -190,62 +175,108 @@ def summary_eval_features(model,dataset,args):
     labels=[]
     Y_probs=[]
     all_logits=[]
-    total = len(dataset)
-       
-    kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}    
-    for bag_candidate_idx in range(total):
-        label=all_labels[bag_candidate_idx]
-        label_tensor=all_labels_tensor[bag_candidate_idx]
-        if isinstance(dataset[bag_candidate_idx],np.int64):
-            slide_id=str(dataset[bag_candidate_idx])
-        else:
-            slide_id = dataset[bag_candidate_idx].split(args.slide_ext)[0]
-        bag_name = slide_id+'.h5'
-        h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
-        slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
-        print('\nprogress: {}/{}'.format(bag_candidate_idx, total))
-        
-        wsi = openslide.open_slide(slide_file_path)
-        sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
-                            custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
 
-        coords=sampled_data.coords(len(sampled_data))
-        
-        X = np.array(coords)
-        
-        samples_per_epoch=args.samples_per_epoch
-
-        ## first sample
-        if args.samples_per_epoch>len(coords):
-            samples_per_epoch=len(coords)
-            print("full slide used")
-            sample_idxs=range(len(coords))
-            
-        else:
-            sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
-        
-        all_sample_idxs=sample_idxs
-        sampled_data.update_sample(sample_idxs)
-        loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-        
-        if len(sample_idxs)>20000:
-            print("very large slide - using cpu. Disable this functionality if using beefy GPU (approx 8GB GPU ram or more)")
-            all_features=extract_features(args,loader,feature_extraction_model,use_cpu=True)
-        else:
-            all_features=extract_features(args,loader,feature_extraction_model,use_cpu=False)
-            
-        all_previous_features=all_features
-        all_sample_idxs=sample_idxs
-        
+    if args.eval_features:
         if args.cpu_only:
             device=torch.device("cpu")
-            all_features.to(device)
+
+        kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {} 
+        feature_extraction_model=resnet50_baseline(pretrained=True,dataset=args.pretraining_dataset)
+        feature_extraction_model = feature_extraction_model.to(device)
+        
+        label_dict=args.label_dict
+        all_labels = pd.read_csv(args.csv_path)['label']
+        all_labels=[label_dict[key] for key in all_labels]
+        all_labels_tensor=torch.Tensor(all_labels)
+        iterator=range(num_slides)
+    
+    else:
+        loader = get_simple_loader(dataset)
+        all_labels = np.zeros(num_slides)
+        slide_ids = loader.dataset.slide_data['slide_id']
+        slide_id_list=[]
+        texture_dataset = []
+        
+        if args.sampling_type=='textural':
+            if args.texture_model=='levit_128s':
+                texture_dataset =  Generic_MIL_Dataset(csv_path = args.csv_path,
+                        data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
+                        shuffle = False,
+                        print_info = True,
+                        label_dict = args.label_dict,
+                        patient_strat= False,
+                        ignore=[])
+                slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
+        iterator=loader
+
+    acc_logger = Accuracy_Logger(n_classes=args.n_classes)
+
+    test_loss = 0.
+    test_error = 0.
+    all_probs = np.zeros((num_slides, args.n_classes))
+    all_preds = np.zeros(num_slides)
+    patient_results = {}
+    
+    num_random=int(args.samples_per_epoch*args.sampling_random)
+    
+
+    for batch_idx, contents in enumerate(iterator):
+        print('\nprogress: {}/{}'.format(batch_idx, num_slides))
+
+        samples_per_epoch=args.samples_per_epoch
+
+        if args.eval_features:
+            label=all_labels[batch_idx]
+            label_tensor=all_labels_tensor[batch_idx]
+            if isinstance(dataset[batch_idx],np.int64):
+                slide_id=str(dataset[bag_candidate_idx])
+            else:
+                slide_id = dataset[batch_idx].split(args.slide_ext)[0]
+
+            bag_name = slide_id+'.h5'
+            h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
+            slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
+        
+            wsi = openslide.open_slide(slide_file_path)
+            sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
+                                custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
+
+            coords=sampled_data.coords(len(sampled_data))
+            X = np.array(coords)
+
+        else:
+            (data, label,coords,slide_id) = contents
+            coords=torch.tensor(coords)
+            X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
+            data, label, coords = data.to(device), label.to(device), coords.to(device)
+            slide_id=slide_id[0][0]
+        
+        ## Generate initial sample_idsx
+        if args.samples_per_epoch>len(coords):
+            print("full slide used")
+            samples_per_epoch=len(coords)
+        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
+        all_sample_idxs=sample_idxs
+
+        if args.eval_features:
+            sampled_data.update_sample(sample_idxs)
+            loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+            if len(sample_idxs)>20000:
+                print("very large slide - using cpu. Disable this functionality if using beefy GPU (approx 8GB GPU ram or more)")
+                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=True)
+            else:
+                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
+            data_sample.to(device)
+            all_previous_features=data_sample
+            all_sample_idxs=sample_idxs
+        else:
+            data_sample=data[sample_idxs].to(device)
+
         with torch.no_grad():
-            logits, Y_prob, Y_hat, raw_attention, results_dict = model(all_features)
+            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
         attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
         attn_scores_list=raw_attention[0].cpu().tolist()
-
-
+        
         if not args.use_all_samples:
             if args.samples_per_epoch<=args.retain_best_samples:
                 best_sample_idxs=sample_idxs
@@ -257,45 +288,40 @@ def summary_eval_features(model,dataset,args):
 
         if args.plot_sampling_gif:
             slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_epoch=False)
-
+        
         all_attentions=attention_scores
         Y_hats.append(Y_hat)
+        labels.append(label)
         Y_probs.append(Y_prob)
         all_logits.append(logits)
 
         ## Find nearest neighbors of each patch to prepare for spatial resampling
         nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
         distances, indices = nbrs.kneighbors(X[sample_idxs])
-
-        sampling_random=args.sampling_random
-
+        
         ## Subsequent epochs
+        sampling_random=args.sampling_random
         neighbors=args.sampling_neighbors
         sampling_weights=np.zeros(len(coords))
-    
         for epoch_count in range(args.sampling_epochs-1):
             sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_epoch*sampling_random)
-
             attention_scores=attention_scores/max(attention_scores)
             all_attentions=all_attentions/max(all_attentions)
-            
-            ## Take final sample if final sampling epoch reached
+                                                                        
+            ## Take final sample ids if final sampling epoch reached
             if epoch_count==args.sampling_epochs-2:
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                                sampling_update=sampling_update,repeats_allowed=False)
+                                            sampling_update=sampling_update,repeats_allowed=False)
                 if args.use_all_samples:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
-                    sampled_data.update_sample(sample_idxs)
                     sample_idxs=sample_idxs+all_sample_idxs
                     all_sample_idxs=sample_idxs
-            
                 else:
                     sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
-                    sampled_data.update_sample(sample_idxs)
                     all_sample_idxs=all_sample_idxs+sample_idxs
                     sample_idxs=sample_idxs+best_sample_idxs
-
+                
                 if args.plot_sampling:
                     plot_sampling(slide_id,coords[sample_idxs],args)
                 if args.plot_sampling_gif:
@@ -303,39 +329,41 @@ def summary_eval_features(model,dataset,args):
             
             else:
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                                sampling_update=sampling_update,repeats_allowed=False)
+                                            sampling_update=sampling_update,repeats_allowed=False)
                 sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
-                sampled_data.update_sample(sample_idxs)
-                all_sample_idxs=all_sample_idxs+sample_idxs
                 distances, indices = nbrs.kneighbors(X[sample_idxs])
+                all_sample_idxs=all_sample_idxs+sample_idxs
+                
                 if args.plot_sampling_gif:
                     if args.use_all_samples:
                         plot_sampling_gif(slide_id,coords[all_sample_idxs],args,epoch_count+1,slide,final_epoch=False)
                     else:
                         plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=False)
 
-            ## Use newly selected ids to first extract features, then to run model
-            loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-            all_features=extract_features(args,loader,feature_extraction_model,use_cpu=False)
-            all_previous_features=torch.cat((all_previous_features,all_features))
-                
-            if args.use_all_samples:
-                if epoch_count==args.sampling_epochs-2: 
-                    all_features=all_previous_features
+            if args.eval_features:
+                sampled_data.update_sample(sample_idxs)
+                loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
+                all_previous_features=torch.cat((all_previous_features,data_sample))
+                if args.use_all_samples:
+                    if epoch_count==args.sampling_epochs-2: 
+                        data_sample=all_previous_features
+                data_sample.to(device)
+            else:
+                data_sample=data[sample_idxs].to(device)
 
-            all_features=all_features.to(device)
+
             with torch.no_grad():
-                logits, Y_prob, Y_hat, raw_attention, results_dict = model(all_features)
+                logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
             all_attention=attention_scores
             attention_scores=attention_scores[-samples_per_epoch:]
-        
             attn_scores_list=raw_attention[0].cpu().tolist()
-            
+
             if not args.use_all_samples:
                 attn_scores_combined=attn_scores_list+best_attn_scores
                 idxs_combined=sample_idxs+best_sample_idxs
-        
+
                 if len(idxs_combined)<=args.retain_best_samples:
                     best_sample_idxs=idxs_combined
                     best_attn_scores=attn_scores_combined
@@ -343,28 +371,37 @@ def summary_eval_features(model,dataset,args):
                     attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
                     best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                     best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-
+            
             Y_hats.append(Y_hat)
             labels.append(label)
             Y_probs.append(Y_prob)
             all_logits.append(logits)
-
+                                                             
             neighbors=neighbors-args.sampling_neighbors_delta
-        print("final sample size:",len(all_features))
+        
         acc_logger.log(Y_hat, label)
-
         probs = Y_prob.cpu().numpy()
+        
+        all_probs[batch_idx] = probs
+        all_preds[batch_idx] = Y_hat.item()
+        
+        if args.eval_features:
+            patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
+            error = calculate_error(Y_hat, label_tensor)
+        if not args.eval_features:
+            all_labels[batch_idx] = label.item()
+            patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
+            error = calculate_error(Y_hat, label)
 
-        all_probs[bag_candidate_idx] = probs
-        all_preds[bag_candidate_idx] = Y_hat.item()
-
-        patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
-        error = calculate_error(Y_hat, label_tensor)
         test_error += error
-
+        
     all_errors=[]
-    for i in range(args.sampling_epochs):
-        all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(all_labels)),3))
+    if args.eval_features:
+        for i in range(args.sampling_epochs):
+            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(all_labels)),3))
+    else:
+        for i in range(args.sampling_epochs):
+            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(labels[i::args.sampling_epochs])),3))
 
     all_aucs=[]
     for i in range(args.sampling_epochs):
@@ -372,14 +409,9 @@ def summary_eval_features(model,dataset,args):
             auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.sampling_epochs]])
         else:
             assert 1==2,"AUC scoring by epoch not implemented for multi-class classification yet"
-            binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
-        
         all_aucs.append(round(auc_score,3))
 
-    del dataset
-    
-    test_error /= total
-    
+    test_error /= num_slides
     aucs = []
     if len(np.unique(all_labels)) == 2:
         auc_score = roc_auc_score(all_labels, all_probs[:, 1])
@@ -389,233 +421,9 @@ def summary_eval_features(model,dataset,args):
     results_dict = {'Y': all_labels, 'Y_hat': all_preds}
     for c in range(args.n_classes):
         results_dict.update({'p_{}'.format(c): all_probs[:,c]})
+
     df = pd.DataFrame(results_dict)
     print("all errors: ",all_errors)
     print("all aucs: ",all_aucs)
     return patient_results, test_error, auc_score, df, acc_logger
 
-
-
-def summary_sampling(model, loader, args):
-    model.eval()
-    acc_logger = Accuracy_Logger(n_classes=args.n_classes)
-
-    test_loss = 0.
-    test_error = 0.
-
-    all_probs = np.zeros((len(loader), args.n_classes))
-    all_labels = np.zeros(len(loader))
-    all_preds = np.zeros(len(loader))
-    slide_ids = loader.dataset.slide_data['slide_id']
-    patient_results = {}
-    
-    num_random=int(args.samples_per_epoch*args.sampling_random)
-    
-    if args.sampling_average:
-        sampling_update='average'
-    else:
-        sampling_update='max'
-
-    ## Collecting Y_hats and labels to view performance across sampling epochs
-    Y_hats=[]
-    labels=[]
-    Y_probs=[]
-    all_logits=[]
-    
-    slide_id_list=[]
-    texture_dataset = []
-    if args.sampling_type=='textural':
-        if args.texture_model=='levit_128s':
-            texture_dataset =  Generic_MIL_Dataset(csv_path = args.csv_path,
-                        data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
-                        shuffle = False,
-                        print_info = True,
-                        label_dict = args.label_dict,
-                        patient_strat= False,
-                        ignore=[])
-            slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
-
-
-    for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
-        print("Processing WSI number ", batch_idx)
-        coords=torch.tensor(coords)
-        
-        X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
-        data, label, coords = data.to(device), label.to(device), coords.to(device)
-        slide_id = slide_ids.iloc[batch_idx]
-        
-        samples_per_epoch=args.samples_per_epoch
-        if args.samples_per_epoch>len(coords):
-            samples_per_epoch=len(coords)
-            print("full slide used")
-                
-        ##first epoch
-        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch=samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
-        
-        all_sample_idxs=sample_idxs
-        data_sample=data[sample_idxs].to(device)
-        with torch.no_grad():
-            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
-
-        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-        attn_scores_list=raw_attention[0].cpu().tolist()
-
-        if not args.use_all_samples:
-            if args.samples_per_epoch<=args.retain_best_samples:
-                best_sample_idxs=sample_idxs
-                best_attn_scores=attn_scores_list
-            else:
-                attn_idxs=[idx.item() for idx in np.argsort(attn_scores_list)][::-1]
-                best_sample_idxs=[sample_idxs[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-                best_attn_scores=[attn_scores_list[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-                   
-        if args.plot_sampling_gif:
-            slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_epoch=False)
-
-        all_attentions=attention_scores
-        Y_hats.append(Y_hat)
-        labels.append(label)
-        Y_probs.append(Y_prob)
-        all_logits.append(logits)
-        
-        ## Find nearest neighbors of each patch to prepare for spatial resampling
-        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
-        distances, indices = nbrs.kneighbors(X[sample_idxs])
-
-        sampling_random=args.sampling_random
-
-        ## Subsequent epochs
-        neighbors=args.sampling_neighbors
-        sampling_weights=np.zeros(len(coords))
-        for epoch_count in range(args.sampling_epochs-1):
-            sampling_random=max(sampling_random-args.sampling_random_delta,0)
-            num_random=int(samples_per_epoch*sampling_random)
-            attention_scores=attention_scores/max(attention_scores)
-            all_attentions=all_attentions/max(all_attentions)
-
-            ## Take final sample if final sampling epoch reached
-            if epoch_count==args.sampling_epochs-2:
-                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                            sampling_update=sampling_update,repeats_allowed=False)
-                if args.use_all_samples:
-                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
-                    sample_idxs=sample_idxs+all_sample_idxs
-                    all_sample_idxs=sample_idxs
-                else:
-                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
-                    all_sample_idxs=all_sample_idxs+sample_idxs
-                    sample_idxs=sample_idxs+best_sample_idxs
-
-                if args.plot_sampling:
-                    plot_sampling(slide_id,coords[sample_idxs],args)
-                if args.plot_sampling_gif:
-                    plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=True)
-            else:
-                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                            sampling_update=sampling_update,repeats_allowed=False)
-                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
-                distances, indices = nbrs.kneighbors(X[sample_idxs])
-                all_sample_idxs=all_sample_idxs+sample_idxs
-                
-                if args.plot_sampling_gif:
-                    if args.use_all_samples:
-                        plot_sampling_gif(slide_id,coords[all_sample_idxs],args,epoch_count+1,slide,final_epoch=False)
-                    else:
-                        plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=False)
-
-            data_sample=data[sample_idxs].to(device)
-        
-            with torch.no_grad():
-                logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
-            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-            all_attention=attention_scores
-            attention_scores=attention_scores[-samples_per_epoch:]
-            attn_scores_list=raw_attention[0].cpu().tolist()
-
-                        
-            if not args.use_all_samples:
-                attn_scores_combined=attn_scores_list+best_attn_scores
-                idxs_combined=sample_idxs+best_sample_idxs
-
-
-                if len(idxs_combined)<=args.retain_best_samples:
-                    best_sample_idxs=idxs_combined
-                    best_attn_scores=attn_scores_combined
-                else:
-                    attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
-                    best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-                    best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-
-            Y_hats.append(Y_hat)
-            labels.append(label)
-            Y_probs.append(Y_prob)
-            all_logits.append(logits)
-            
-            neighbors=neighbors-args.sampling_neighbors_delta
-
-        acc_logger.log(Y_hat, label)
-                 
-        probs = Y_prob.cpu().numpy()
-        
-        all_probs[batch_idx] = probs
-        all_labels[batch_idx] = label.item()
-        all_preds[batch_idx] = Y_hat.item()
-                                                         
-        patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
-        
-        error = calculate_error(Y_hat, label)
-        test_error += error
-
-    all_errors=[]
-    for i in range(args.sampling_epochs):
-        all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(labels[i::args.sampling_epochs])),3))
-    
-    all_aucs=[]
-    for i in range(args.sampling_epochs):
-        if len(np.unique(all_labels)) == 2:
-            auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.sampling_epochs]])
-        else:
-            assert 1==2,"AUC scoring by epoch not implemented for multi-class classification yet"
-            binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
-            for class_idx in range(args.n_classes):
-                if class_idx in all_labels:
-                    fpr, tpr, _ = roc_curve(binary_labels[:, class_idx], all_probs[:, class_idx])
-                    aucs.append(auc(fpr, tpr))
-                else:
-                    aucs.append(float('nan'))
-                    if args.micro_average:
-                        binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
-                        fpr, tpr, _ = roc_curve(binary_labels.ravel(), all_probs.ravel())
-                        auc_score = auc(fpr, tpr)
-                    else:
-                        auc_score = np.nanmean(np.array(aucs))
-        all_aucs.append(round(auc_score,3))
-
-    del data
-    test_error /= len(loader)
-
-    aucs = []
-    if len(np.unique(all_labels)) == 2:
-        auc_score = roc_auc_score(all_labels, all_probs[:, 1])
-    else:
-        binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
-        for class_idx in range(args.n_classes):
-            if class_idx in all_labels:
-                fpr, tpr, _ = roc_curve(binary_labels[:, class_idx], all_probs[:, class_idx])
-                aucs.append(auc(fpr, tpr))
-            else:
-                aucs.append(float('nan'))
-        if args.micro_average:
-            binary_labels = label_binarize(all_labels, classes=[i for i in range(args.n_classes)])
-            fpr, tpr, _ = roc_curve(binary_labels.ravel(), all_probs.ravel())
-            auc_score = auc(fpr, tpr)
-        else:
-            auc_score = np.nanmean(np.array(aucs))
-
-    results_dict = {'slide_id': slide_ids, 'Y': all_labels, 'Y_hat': all_preds}
-    for c in range(args.n_classes):
-        results_dict.update({'p_{}'.format(c): all_probs[:,c]})
-    df = pd.DataFrame(results_dict)
-    print("all errors: ",all_errors)
-    print("all aucs: ",all_aucs)
-    return patient_results, test_error, auc_score, df, acc_logger
