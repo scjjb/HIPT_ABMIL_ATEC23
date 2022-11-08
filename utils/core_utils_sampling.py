@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 from utils.utils import *
 from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights
+from utils.core_utils import train_loop, train_loop_clam,validate,validate_clam
 from datasets.dataset_generic import Generic_MIL_Dataset
 import os
 from datasets.dataset_generic import save_splits
@@ -121,7 +122,7 @@ def train_sampling(datasets, cur, class_counts, args):
     print('\nInit train/val/test splits...', end=' ')
     train_split, val_split, test_split = datasets
     
-    train_split.load_from_h5(True)
+    #train_split.load_from_h5(True)
     #val_split.load_from_h5(True)
     #test_split.load_from_h5(True)
 
@@ -191,6 +192,9 @@ def train_sampling(datasets, cur, class_counts, args):
     
     print('\nInit Loaders...', end=' ')
     train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
+    train_split_h5=train_split
+    train_split_h5.load_from_h5(True)
+    train_loader_h5 = get_split_loader(train_split_h5, training=True, testing = args.testing, weighted = args.weighted_sample)
     val_loader = get_split_loader(val_split,  testing = args.testing)
     test_loader = get_split_loader(test_split, testing = args.testing)
     print('Done!')
@@ -205,13 +209,23 @@ def train_sampling(datasets, cur, class_counts, args):
 
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
-            train_loop_clam_sampling(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
-            stop = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
-                early_stopping, writer, loss_fn, args.results_dir)
+            if epoch<args.no_sampling_epochs:
+                train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
+                stop = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
+                    early_stopping, writer, loss_fn, args.results_dir)
+            else:
+                train_loop_clam_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
+                stop = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
+                    early_stopping, writer, loss_fn, args.results_dir)
         else:
-            train_loop_sampling(epoch, model, train_loader, optimizer, args.n_classes, args, writer, loss_fn)
-            stop = validate_sampling(cur, epoch, model, val_loader, args.n_classes,
-                early_stopping, writer, loss_fn, args.results_dir)
+            if epoch<args.no_sampling_epochs:
+                train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
+                stop = validate(cur, epoch, model, val_loader, args.n_classes, 
+                    early_stopping, writer, loss_fn, args.results_dir)
+            else:
+                train_loop_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args, writer, loss_fn)
+                stop = validate_sampling(cur, epoch, model, val_loader, args.n_classes,
+                    early_stopping, writer, loss_fn, args.results_dir)
         
         if stop: 
             break
@@ -420,16 +434,6 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
 
         logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
-        ##############################################
-        ##############################################
-        #### NEED TO ADJUST CODE BELOW HERE ##########
-        ##############################################
-        ##############################################
-
-        
-        
-        #logits, Y_prob, Y_hat, _, _ = model(data)
-        
         acc_logger.log(Y_hat, label)
         loss = loss_fn(logits, label)
         loss_value = loss.item()
@@ -446,7 +450,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         # step
         optimizer.step()
         optimizer.zero_grad()
-
+        #print("final sample size:",len(data_sample))
     # calculate loss and error for epoch
     train_loss /= len(loader)
     train_error /= len(loader)

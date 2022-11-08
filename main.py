@@ -128,7 +128,7 @@ parser.add_argument('--sampling_neighbors', type=int, default=20, help='number o
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
 parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
 parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
-
+parser.add_argument('--no_sampling_epochs',type=int,default=20,help='number of epochs to complete full slide processing before beginning sampling')
 
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
