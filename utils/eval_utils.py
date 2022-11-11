@@ -461,19 +461,25 @@ def summary_sampling(model, dataset, args):
             all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.resampling_iterations]),torch.Tensor(labels[i::args.resampling_iterations])),3))
 
     all_aucs=[]
-    for i in range(args.resampling_iterations):
-        if len(np.unique(all_labels)) == 2:
-            auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.resampling_iterations]])
+    if len(np.unique(all_labels)) == 2:
+        if len(all_labels)==len([yprob.tolist()[0][1] for yprob in Y_probs[0::args.resampling_iterations]]):
+            for i in range(args.resampling_iterations):
+                auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.resampling_iterations]])
+                all_aucs.append(round(auc_score,3))
+        print("all aucs: ",all_aucs)
         else:
-            assert 1==2,"AUC scoring by iteration not implemented for multi-class classification yet"
-        all_aucs.append(round(auc_score,3))
+            print("scoring by iteration unavailable as not all slides could be sampled")
+    else:
+        print("AUC scoring by iteration not implemented for multi-class classification yet")
+        
 
     test_error /= num_slides
     aucs = []
     if len(np.unique(all_labels)) == 2:
         auc_score = roc_auc_score(all_labels, all_probs[:, 1])
     else:
-        assert  1==2,"AUC scoring by iteration not implemented for multi-class classification yet"
+        print("AUC scoring not implemented for multi-class classification yet")
+        #assert  1==2,"AUC scoring by iteration not implemented for multi-class classification yet"
 
     results_dict = {'Y': all_labels, 'Y_hat': all_preds}
     for c in range(args.n_classes):
@@ -481,6 +487,6 @@ def summary_sampling(model, dataset, args):
 
     df = pd.DataFrame(results_dict)
     print("all errors: ",all_errors)
-    print("all aucs: ",all_aucs)
+    #print("all aucs: ",all_aucs)
     return patient_results, test_error, auc_score, df, acc_logger
 
