@@ -8,7 +8,7 @@ import math
 # internal imports
 from utils.file_utils import save_pkl, load_pkl
 from utils.utils import *
-from utils.core_utils_tuning import train
+from utils.core_utils_sampling_tuning import train_sampling_tuning
 from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic_MIL_Dataset
 
 # pytorch imports
@@ -25,11 +25,8 @@ from functools import partial
 from ray import tune
 from ray.tune import CLIReporter
 from ray.air.config import RunConfig
-#, TuneConfig
 from ray.tune.schedulers import ASHAScheduler
-#from ray.tune.schedulers import PopulationBasedTraining
 import ray
-
 
 def main():
     # create results directory if necessary
@@ -50,94 +47,48 @@ def main():
     all_test_acc = []
     all_val_acc = []
     
-    
-    #ray.init(num_gpus=1)
-    
-    
     search_space = {
-        "reg": tune.loguniform(1e-8,1e-2),
-        #"reg": tune.grid_search([1e-5, 1e-4]),
-        #"reg": tune.uniform(0.0001,0.0001000001),
-        #"drop_out": tune.grid_search([0.6,0.8]),
-        #"lr": tune.grid_search([5e-5,5e-4]),
-        "B": tune.choice([4,8,16,32,64]),
-        "lr": tune.loguniform(5e-5,1e-3),
-        "drop_out": tune.uniform(0.0,0.99),
-        #"no_sampling_epochs": tune.choice([0,10,20,30])
-        #"lr": tune.loguniform(1e-1,1),
-        }
-    
-   
-    #output_file=pd.DataFrame([["reg","lr","drop_out","loss","auc","accuracy"]])
-    #output_file.to_csv(args.tuning_output_file,index=False)
-
+            "reg": tune.loguniform(1e-8,1e-2),
+            "drop_out": tune.uniform(0.0,0.99),
+            "lr": tune.loguniform(5e-5,1e-3),
+            "B": tune.choice([4,6,16,32,64,128]),
+            "no_sampling_epochs": tune.choice([0,10,20,30])
+            }
 
     scheduler = ASHAScheduler(
-        metric="loss",
-        mode="min",
-        grace_period=40,
-        reduction_factor=3,
-        max_t=args.max_epochs)
+                metric="loss",
+                mode="min",
+                grace_period=40,
+                reduction_factor=3,
+                max_t=args.max_epochs)
 
-    
-    # Scheduler for population based training: 
-    #scheduler = PopulationBasedTraining(
-    #    time_attr="training_iteration",
-    #    perturbation_interval=1,
-    #    burn_in_period=3,
-    #    metric="loss",
-    #    mode="min",
-    #    hyperparam_mutations={
-    #        # distribution for resampling
-    #        "lr": lambda: np.random.uniform(1e-4, 1e-2),
-    #        "reg": [1e-8,1e-7,1e-6,1e-5,1e-4,1e-3],
-    #        "drop_out": lambda: np.random.uniform(0.0,0.9)},
-    #                                     )
 
     reporter = CLIReporter(
-        metric_columns=["loss", "accuracy", "auc", "training_iteration","total time (s)"],
-        max_report_frequency=5,
-        max_progress_rows=20,
-        metric="loss",
-        mode="min",
-        sort_by_metric=True)
-
+                metric_columns=["loss", "accuracy", "auc", "training_iteration","total time (s)"],
+                max_report_frequency=5,
+                max_progress_rows=20,
+                metric="loss",
+                mode="min",
+                sort_by_metric=True)
 
     folds = np.arange(start, end)
 
     i=folds[0]
     train_dataset, val_dataset, test_dataset = dataset.return_splits(from_id=False,
-            csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
+                csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     datasets = (train_dataset, val_dataset, test_dataset)
+
     ##class_counts to be used in balanced cross entropy if enabled
     class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
     class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
     stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=40)
     
-    #run_config={stop=stopper}
-    #tune_config={max_concurrent_trails=10}
-    #tuner = tune.Tuner(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args), param_space=search_space, run_config=run_config, tune_config=tune_config)
-    tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":20,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
+    tuner = tune.Tuner(tune.with_resources(partial(train_sampling_tuning,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":20,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
     results = tuner.fit()
-    #print(results.get_best_result(metric="loss", mode="min").config)
-#ValueError: You passed a `metric` or `mode` argument to `tune.run()`, but the scheduler you are using was already instantiated with their own `metric` and `mode` parameters. Either remove the arguments from your scheduler or from your call to `tune.run()`
-    
-
-    #results = tune.run(tuner,resources_per_trial={"cpu": 25, "gpu": 0.1},stop=stopper, progress_reporter=reporter, num_samples=10)
-    
-    ## Can also run with the following set up - the resources per trial allows two parallel experiments with the same GPU
-    #results = tune.run(partial(train,datasets=datasets,cur=i,args=args),resources_per_trial={"cpu": 2, "gpu": 0.5},config=config,scheduler=scheduler, progress_reporter=reporter, num_samples=8,stop={"training_iteration": 50})
 
     results_df=results.get_dataframe()
     results_df.to_csv(args.tuning_output_file,index=False)
-    #best_trial = results.get_best_result("loss", "min","last")
-    #print("best trial:", best_trial)
-    #print(best_trial)
-    #print("Best trial config: {}".format(best_trial.config))
-    #print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
-    #print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
-    #print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
 
     best_trial = results.get_best_result("loss", "min","all")
     print("best trial:", best_trial)
@@ -145,15 +96,18 @@ def main():
     print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
     print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
     print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
+    
 
 # Generic training settings
 parser = argparse.ArgumentParser(description='Configurations for WSI Training')
-parser.add_argument('--data_root_dir', type=str, default=None,
+parser.add_argument('--data_root_dir', type=str, default=None, 
                     help='directory containing features folders')
 parser.add_argument('--features_folder', type=str, default=None,
                     help='folder within data_root_dir containing the features - must contain pt_files/h5_files subfolder')
 parser.add_argument('--max_epochs', type=int, default=200,
                     help='maximum number of epochs to train (default: 200)')
+parser.add_argument('--min_epochs', type=int, default=20,
+                    help='minimum number of epochs to train (default: 20)')
 parser.add_argument('--lr', type=float, default=1e-4,
                     help='learning rate (default: 0.0001)')
 parser.add_argument('--label_frac', type=float, default=1.0,
@@ -184,6 +138,20 @@ parser.add_argument('--weighted_sample', action='store_true', default=False, hel
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
 parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc'])
 parser.add_argument('--csv_path',type=str,default=None,help='path to dataset_csv file')
+parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
+parser.add_argument('--num_samples',type=int,default=100,help="number of tuning samples")
+
+## sampling options
+parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')
+parser.add_argument('--sampling_type', type=str, choices=['spatial','textural'],default='spatial',help='type of sampling to use')
+parser.add_argument('--samples_per_epoch', type=int, default=100, help='number of patches to sample per sampling epoch')
+parser.add_argument('--sampling_epochs', type=int, default=10, help='number of sampling epochs')
+parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per epoch')
+parser.add_argument('--sampling_neighbors', type=int, default=20, help='number of nearest neighbors to consider when resampling')
+parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
+parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
+parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
+parser.add_argument('--no_sampling_epochs',type=int,default=20,help='number of epochs to complete full slide processing before beginning sampling')
 
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
@@ -195,8 +163,6 @@ parser.add_argument('--subtyping', action='store_true', default=False,
 parser.add_argument('--bag_weight', type=float, default=0.7,
                     help='clam: weight coefficient for bag-level loss (default: 0.7)')
 parser.add_argument('--B', type=int, default=8, help='numbr of positive/negative patches to sample for clam')
-parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
-parser.add_argument('--num_samples',type=int,default=100,help="number of tuning samples")
 args = parser.parse_args()
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -229,7 +195,9 @@ settings = {'num_splits': args.k,
             'seed': args.seed,
             'model_type': args.model_type,
             'model_size': args.model_size,
-            "use_drop_out": args.drop_out,
+            "drop_out": args.drop_out,
+            "use_early_stopping": args.early_stopping,
+            "use_sampling": args.sampling,
             'weighted_sample': args.weighted_sample,
             'opt': args.opt}
 
@@ -238,8 +206,11 @@ if args.model_type in ['clam_sb', 'clam_mb']:
                     'inst_loss': args.inst_loss,
                     'B': args.B})
 
-print('\nLoad Dataset')
+if args.sampling:
+    settings.update({'sampling_type': args.sampling_type})
 
+print('\nLoad Dataset')
+    
 if args.task == 'ovarian_5class':
     args.n_classes=5
     args.label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4}
@@ -256,16 +227,17 @@ elif args.task == 'nsclc':
 
 else:
     raise NotImplementedError
-    
-dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
-    data_dir= os.path.join(args.data_root_dir, args.features_folder),
-    shuffle = False,
-    seed = args.seed,
-    print_info = True,
-    label_dict = args.label_dict,
-    patient_strat=False,
-    ignore=[])
 
+dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
+                            data_dir= os.path.join(args.data_root_dir, args.features_folder),
+                            shuffle = False, 
+                            seed = args.seed, 
+                            print_info = True,
+                            label_dict = args.label_dict,
+                            patient_strat=False,
+                            ignore=[])
+
+    
 if not os.path.isdir(args.results_dir):
     os.mkdir(args.results_dir)
 
@@ -293,8 +265,7 @@ for key, val in settings.items():
     print("{}:  {}".format(key, val))        
 
 if __name__ == "__main__":
-    #results = main(args)
-    main()
+    results = main()
     print("finished!")
     print("end script")
 

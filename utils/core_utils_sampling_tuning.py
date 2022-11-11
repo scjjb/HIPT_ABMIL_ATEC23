@@ -1,6 +1,10 @@
 import numpy as np
+import pandas as pd
 import torch
 from utils.utils import *
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights
+from utils.core_utils import train_loop, train_loop_clam,validate,validate_clam
+from datasets.dataset_generic import Generic_MIL_Dataset
 import os
 from datasets.dataset_generic import save_splits
 from models.model_mil import MIL_fc, MIL_fc_mc
@@ -8,7 +12,7 @@ from models.model_clam import CLAM_MB, CLAM_SB
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
-import pandas as pd
+from sklearn.neighbors import NearestNeighbors
 from ray import tune
 
 class Accuracy_Logger(object):
@@ -48,7 +52,7 @@ class Accuracy_Logger(object):
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, patience=20, stop_epoch=50, verbose=False):
+    def __init__(self, min_epochs=20, patience=20, stop_epoch=20, verbose=False):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -64,49 +68,52 @@ class EarlyStopping:
         self.best_score = None
         self.early_stop = False
         self.val_loss_min = np.Inf
+        self.min_epochs = min_epochs
 
     def __call__(self, epoch, val_loss, model, ckpt_name = 'checkpoint.pt'):
 
         score = -val_loss
-
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, ckpt_name)
-        elif score < self.best_score:
-            self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience and epoch > self.stop_epoch:
-                self.early_stop = True
+        
+        if epoch >= self.min_epochs:
+            if self.best_score is None:
+                self.best_score = score
+                self.save_checkpoint(val_loss, model, ckpt_name)
+            elif score < self.best_score:
+                self.counter += 1
+                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+                if self.counter >= self.patience and epoch > self.stop_epoch:
+                    self.early_stop = True
+            else:
+                self.best_score = score
+                self.save_checkpoint(val_loss, model, ckpt_name, True)
+                self.counter = 0
         else:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, ckpt_name)
-            self.counter = 0
+                self.save_checkpoint(val_loss, model, ckpt_name, False)
 
-    def save_checkpoint(self, val_loss, model, ckpt_name):
+    def save_checkpoint(self, val_loss, model, ckpt_name, better_model=True):
         '''Saves model when validation loss decrease.'''
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            if better_model:
+                print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            else:
+                print(f'Below min epochs. Validation loss changed ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
-def train(config, datasets, cur, class_counts, args):
+
+def train_sampling_tuning(config,datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
-    print('\nTraining Fold {}!'.format(cur))
-    
-    #args.sampling_random=config["sampling_random"]
-    #args.sampling_neighbors=config["sampling_neighbors"]
-    #args.sampling_random_delta=config["sampling_random_delta"]
-    #args.samples_per_epoch=config["samples_per_epoch"]
-    #args.weight_strength=config["weight_strength"]
-    #args.sampling_epochs=int((1024/args.samples_per_epoch))
+    assert 0<=args.sampling_random<=1,"sampling_random needs to be between 0 and 1"
+
     args.lr=config["lr"]
     args.reg=config["reg"]
     args.drop_out=config["drop_out"]
     args.B=config["B"]
-    #args.no_sampling_epochs=config["no_sampling_epochs"]
+    args.no_sampling_epochs=config["no_sampling_epochs"]
 
+    print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):
         os.mkdir(writer_dir)
@@ -120,6 +127,11 @@ def train(config, datasets, cur, class_counts, args):
 
     print('\nInit train/val/test splits...', end=' ')
     train_split, val_split, test_split = datasets
+    
+    #train_split.load_from_h5(True)
+    #val_split.load_from_h5(True)
+    #test_split.load_from_h5(True)
+
     save_splits(datasets, ['train', 'val', 'test'], os.path.join(args.results_dir, 'splits_{}.csv'.format(cur)))
     print('Done!')
     print("Training on {} samples".format(len(train_split)))
@@ -186,37 +198,41 @@ def train(config, datasets, cur, class_counts, args):
     
     print('\nInit Loaders...', end=' ')
     train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
+    train_split_h5=train_split
+    train_split_h5.load_from_h5(True)
+    train_loader_h5 = get_split_loader(train_split_h5, training=True, testing = args.testing, weighted = args.weighted_sample)
     val_loader = get_split_loader(val_split,  testing = args.testing)
     test_loader = get_split_loader(test_split, testing = args.testing)
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')
     if args.early_stopping:
-        early_stopping = EarlyStopping(patience = 2, stop_epoch=5, verbose = True)
+        early_stopping = EarlyStopping(min_epochs = args.min_epochs, patience = 20, stop_epoch=20, verbose = True)
 
     else:
         early_stopping = None
-    early_stopping = None
-    print("early stopping disabled for tuning experiments")
     print('Done!')
 
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
-            train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
-            stop, val_error, val_loss,val_auc = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
-                early_stopping, writer, loss_fn, args.results_dir)
-            with tune.checkpoint_dir(epoch) as checkpoint_dir:
-                path = os.path.join(checkpoint_dir, "checkpoint")
-                torch.save((model.state_dict(), optimizer.state_dict()), path)
-            tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
+            if epoch<args.no_sampling_epochs:
+                train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
+                stop = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
+                    early_stopping, writer, loss_fn, args.results_dir)
+            else:
+                train_loop_clam_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
+                stop = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
+                    early_stopping, writer, loss_fn, args.results_dir)
         else:
-            train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
-            stop,val_error, val_loss,val_auc = validate(cur, epoch, model, val_loader, args.n_classes, 
-                early_stopping, writer, loss_fn, args.results_dir)
-            with tune.checkpoint_dir(epoch) as checkpoint_dir:
-                path = os.path.join(checkpoint_dir, "checkpoint")
-                torch.save((model.state_dict(), optimizer.state_dict()), path)
-            tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
+            if epoch<args.no_sampling_epochs:
+                train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
+                stop = validate(cur, epoch, model, val_loader, args.n_classes, 
+                    early_stopping, writer, loss_fn, args.results_dir)
+            else:
+                train_loop_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args, writer, loss_fn)
+                stop = validate_sampling(cur, epoch, model, val_loader, args.n_classes,
+                    early_stopping, writer, loss_fn, args.results_dir)
+        
         if stop: 
             break
 
@@ -230,18 +246,7 @@ def train(config, datasets, cur, class_counts, args):
 
     results_dict, test_error, test_auc, acc_logger = summary(model, test_loader, args.n_classes)
     print('Test error: {:.4f}, ROC AUC: {:.4f}'.format(test_error, test_auc))
-    
-    #with tune.checkpoint_dir(epoch) as checkpoint_dir:
-    #    path = os.path.join(checkpoint_dir, "checkpoint")
-    #    torch.save((model.state_dict(), optimizer.state_dict()), path)
 
-    #tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
-
-    output_row=[args.reg,args.lr,args.drop_out,val_loss,val_auc,1-val_error]
-    output_dataframe=pd.read_csv("/CLAM/"+args.tuning_output_file)
-    output_dataframe.loc[len(output_dataframe)] = output_row
-    output_dataframe.to_csv("/CLAM/"+args.tuning_output_file,index=False)
-    
     for i in range(args.n_classes):
         acc, correct, count = acc_logger.get_summary(i)
         print('class {}: acc {}, correct {}/{}'.format(i, acc, correct, count))
@@ -258,7 +263,8 @@ def train(config, datasets, cur, class_counts, args):
     return results_dict, test_auc, val_auc, 1-test_error, 1-val_error 
 
 
-def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+    assert 1==2,"train_loop_clam_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -290,7 +296,7 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         inst_logger.log_batch(inst_preds, inst_labels)
 
         train_loss += loss_value
-        if (batch_idx + 1) % 1000 == 0:
+        if (batch_idx + 1) % 20 == 0:
             print('batch {}, loss: {:.4f}, instance_loss: {:.4f}, weighted_loss: {:.4f}, '.format(batch_idx, loss_value, instance_loss_value, total_loss.item()) + 
                 'label: {}, bag_size: {}'.format(label.item(), data.size(0)))
 
@@ -326,25 +332,120 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         writer.add_scalar('train/error', train_error, epoch)
         writer.add_scalar('train/clustering_loss', train_inst_loss, epoch)
 
-def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None):   
+def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer = None, loss_fn = None):   
+    num_random=int(args.samples_per_epoch*args.sampling_random)
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
     train_loss = 0.
     train_error = 0.
+    
+    if args.sampling_average:
+        sampling_update='average'
+    else:
+        sampling_update='max'
 
-    print('\n')
-    for batch_idx, (data, label) in enumerate(loader):
-        data, label = data.to(device), label.to(device)
+    ## Collecting Y_hats and labels to view performance across sampling epochs
+    Y_hats=[]
+    labels=[]
+    Y_probs=[]
+    all_logits=[]
+    slide_ids = loader.dataset.slide_data['slide_id']
 
-        logits, Y_prob, Y_hat, _, _ = model(data)
+    slide_id_list=[]
+    texture_dataset=[]
+    if args.sampling_type=='textural':
+        if args.texture_model=='levit_128s':
+            texture_dataset =  Generic_MIL_Dataset(csv_path = args.csv_path,
+                data_dir= os.path.join(args.data_root_dir, 'levit_128s'),
+                shuffle = False,
+                print_info = True,
+                label_dict = args.label_dict,
+                patient_strat= False,
+                ignore=[])
+            slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
         
+    print('\n')
+    for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
+        #print("Processing WSI number ", batch_idx)
+        coords=torch.tensor(coords)
+        
+        X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
+        data, label, coords = data.to(device), label.to(device), coords.to(device)
+        slide_id = slide_ids.iloc[batch_idx]
+
+        samples_per_epoch=args.samples_per_epoch
+        if args.samples_per_epoch>len(coords):
+            samples_per_epoch=len(coords)
+            print("full slide used")
+
+        ## First epoch (fully random sampling)
+        sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_epoch,replace=False))
+
+        all_sample_idxs=sample_idxs
+        data_sample=data[sample_idxs].to(device)
+        with torch.no_grad():
+            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+        
+        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+        attn_scores_list=raw_attention[0].cpu().tolist()
+
+        all_attentions=attention_scores
+        Y_hats.append(Y_hat)
+        labels.append(label)
+        Y_probs.append(Y_prob)
+        all_logits.append(logits)
+                                                 
+        ## Find nearest neighbors of each patch to prepare for spatial resampling
+        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        distances, indices = nbrs.kneighbors(X[sample_idxs])
+
+        sampling_random=args.sampling_random
+
+        ## Subsequent epochs
+        neighbors=args.sampling_neighbors
+        sampling_weights=np.zeros(len(coords))
+
+        for epoch_count in range(args.sampling_epochs-1):
+            #sampling_random=max(sampling_random-args.sampling_random_delta,0)
+            num_random=int(samples_per_epoch*sampling_random)
+            attention_scores=attention_scores/max(attention_scores)
+            all_attentions=all_attentions/max(all_attentions)
+            
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+            all_sample_idxs=all_sample_idxs+sample_idxs
+            distances, indices = nbrs.kneighbors(X[sample_idxs])
+            
+            ## assuming args.use_all_samples here
+            if epoch_count==args.sampling_epochs-2:
+                for sample_idx in all_sample_idxs:
+                    sampling_weights[sample_idx]=0
+                sampling_weights=sampling_weights/max(sampling_weights)
+                sampling_weights=sampling_weights/sum(sampling_weights)
+                sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
+                all_sample_idxs=all_sample_idxs+sample_idxs
+                data_sample=data[all_sample_idxs].to(device)
+            else:
+                data_sample=data[sample_idxs].to(device)
+            
+            #with torch.no_grad():
+            #    logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+            #attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+            #all_attention=attention_scores
+            #attention_scores=attention_scores[-samples_per_epoch:]
+            #attn_scores_list=raw_attention[0].cpu().tolist()
+        
+        
+
+        logits, Y_prob, Y_hat, _, _ = model(data_sample)
+
         acc_logger.log(Y_hat, label)
         loss = loss_fn(logits, label)
         loss_value = loss.item()
         
         train_loss += loss_value
-        if (batch_idx + 1) % 1000 == 0:
+        if (batch_idx + 1) % 20 == 0:
             print('batch {}, loss: {:.4f}, label: {}, bag_size: {}'.format(batch_idx, loss_value, label.item(), data.size(0)))
            
         error = calculate_error(Y_hat, label)
@@ -355,7 +456,7 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         # step
         optimizer.step()
         optimizer.zero_grad()
-
+        #print("final sample size:",len(data_sample))
     # calculate loss and error for epoch
     train_loss /= len(loader)
     train_error /= len(loader)
@@ -372,7 +473,8 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         writer.add_scalar('train/error', train_error, epoch)
 
    
-def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
+def validate_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
+    #assert 1==2,"validate_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -424,13 +526,17 @@ def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer
     if early_stopping:
         assert results_dir
         early_stopping(epoch, val_loss, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
-        
+        #early_stopping(epoch, 1-auc, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
         if early_stopping.early_stop:
+            with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
+                f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
-            return True,val_error, val_loss, auc
-    return False,val_error, val_loss, auc
+            return True
 
-def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir = None):
+    return False
+
+def validate_clam_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir = None):
+    assert 1==2,"validate_clam_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -514,13 +620,14 @@ def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, w
     if early_stopping:
         assert results_dir
         early_stopping(epoch, val_loss, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
-        
+        #early_stopping(epoch, 1-auc, model, ckpt_name = os.path.join(results_dir, "s_{}_checkpoint.pt".format(cur)))
         if early_stopping.early_stop:
+            with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
+                f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
-            return True,val_error, val_loss, auc
-    
-    #return val_error, val_loss
-    return False,val_error, val_loss, auc
+            return True
+
+    return False
 
 def summary(model, loader, n_classes):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")

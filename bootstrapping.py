@@ -20,6 +20,7 @@ parser.add_argument('--run_repeats', type=int, default=10,
                             help='Number of model repeats')
 parser.add_argument('--folds', type=int, default=10,
                             help='Number of cross-validation folds')
+parser.add_argument('--num_classes',type=int,default=2,help='Number of classes')
 args = parser.parse_args()
 model_names=args.model_names.split(",")
 bootstraps=args.bootstraps
@@ -28,6 +29,7 @@ for model_name in model_names:
     model_name='eval_results/EVAL_'+model_name
     all_Ys=[]
     all_p1s=[]
+    all_probs=[]
     all_Yhats=[]
     for run_no in range(args.run_repeats):
         for fold_no in range(args.folds):
@@ -36,7 +38,13 @@ for model_name in model_names:
             else:
                 full_df = pd.read_csv(model_name+'/fold_{}.csv'.format(fold_no))
             all_Ys=all_Ys+list(full_df['Y'])
-            all_p1s=all_p1s+list(full_df['p_1'])
+            if args.num_classes==2:
+                all_p1s=all_p1s+list(full_df['p_1'])
+            else:
+                if len(all_probs)<1:
+                    all_probs=full_df.iloc[:,-args.num_classes:]
+                else:
+                    all_probs=all_probs.append(full_df.iloc[:,-args.num_classes:])
             all_Yhats=all_Yhats+list(full_df['Y_hat'])
 
 
@@ -44,7 +52,15 @@ for model_name in model_names:
     err_scores=[]
     for _ in range(bootstraps):
         idxs=np.random.choice(range(len(all_Ys)),len(all_Ys))
-        AUC_scores=AUC_scores+[roc_auc_score([all_Ys[idx] for idx in idxs],[all_p1s[idx] for idx in idxs])]
+        if args.num_classes>2:
+            #print("len probs(0)",len(all_probs[0]))
+            #print(all_probs[0])
+            #print(all_probs)
+            #print("len probs",len(all_probs))
+            #print("len Ys",len(all_Ys))
+            AUC_scores=AUC_scores+[roc_auc_score([all_Ys[idx] for idx in idxs],[all_probs.iloc[idx,:] for idx in idxs],multi_class='ovr')]
+        else:
+            AUC_scores=AUC_scores+[roc_auc_score([all_Ys[idx] for idx in idxs],[all_p1s[idx] for idx in idxs])]
         error=0
         for idx in idxs:
             error=error+calculate_error(all_Yhats[idx],all_Ys[idx])

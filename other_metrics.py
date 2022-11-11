@@ -15,6 +15,7 @@ parser.add_argument('--folds', type=int, default=10,
                             help='Number of cross-validation folds')
 parser.add_argument('--data_csv', type=str, default='set_all_998.csv')
 parser.add_argument('--label_dict',type=str,default="{'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4}") 
+parser.add_argument('--num_classes',type=int,default=2)
 args = parser.parse_args()
 model_names=args.model_names.split(",")
 bootstraps=args.bootstraps
@@ -43,23 +44,30 @@ for model_name in model_names:
     print("hgsc other")
     print(confusion_matrix(all_Ys,all_Yhats),"\n")
     
-    for slide in all_slides:
-        all_ground_truths=all_ground_truths+list(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
-        if len(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])>1:
-            print(slide)
-            print(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
-    print("predicted")
-    print("hgsc other")
-    print(confusion_matrix([label_dict[true] for true in all_ground_truths],all_Yhats),"\n")
+    if args.num_classes<5:
+        for slide in all_slides:
+            all_ground_truths=all_ground_truths+list(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
+            if len(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])>1:
+                print(slide)
+                print(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
+        print("predicted")
+        print("hgsc other")
+        print(confusion_matrix([label_dict[true] for true in all_ground_truths],all_Yhats),"\n")
 
     f1s=[]
     accuracies=[]
     balanced_accuracies=[]
     for _ in range(bootstraps):
         idxs=np.random.choice(range(len(all_Ys)),len(all_Ys))
-        f1s=f1s+[f1_score([all_Ys[idx] for idx in idxs],[all_Yhats[idx] for idx in idxs])]
+        if args.num_classes==2:
+            f1s=f1s+[f1_score([all_Ys[idx] for idx in idxs],[all_Yhats[idx] for idx in idxs])]
+        else:
+            f1s=f1s+[f1_score([all_Ys[idx] for idx in idxs],[all_Yhats[idx] for idx in idxs],average='macro')]
         accuracies=accuracies+[accuracy_score([all_Ys[idx] for idx in idxs],[all_Yhats[idx] for idx in idxs])]
         balanced_accuracies=balanced_accuracies+[balanced_accuracy_score([all_Ys[idx] for idx in idxs],[all_Yhats[idx] for idx in idxs])]
-    print("F1 mean: ",np.mean(f1s)," F1 std: ",np.std(f1s))
+    if args.num_classes==2:
+        print("F1 mean: ",np.mean(f1s)," F1 std: ",np.std(f1s))
+    else:
+        print("Macro F1 mean: ",np.mean(f1s)," F1 std: ",np.std(f1s))
     print("accuracy mean: ",np.mean(accuracies)," accuracy std: ",np.std(accuracies))
     print("balanced accuracy mean: ",np.mean(balanced_accuracies)," balanced accuracy std: ",np.std(balanced_accuracies))
