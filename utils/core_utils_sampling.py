@@ -122,10 +122,6 @@ def train_sampling(datasets, cur, class_counts, args):
     print('\nInit train/val/test splits...', end=' ')
     train_split, val_split, test_split = datasets
     
-    #train_split.load_from_h5(True)
-    #val_split.load_from_h5(True)
-    #test_split.load_from_h5(True)
-
     save_splits(datasets, ['train', 'val', 'test'], os.path.join(args.results_dir, 'splits_{}.csv'.format(cur)))
     print('Done!')
     print("Training on {} samples".format(len(train_split)))
@@ -360,6 +356,9 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             slide_id_list = list(pd.read_csv(args.csv_path)['slide_id'])
         
     print('\n')
+
+    total_samples_per_slide = (args.samples_per_epoch*args.sampling_epochs)+args.final_sample_size
+    print("total_samples_per_slide",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
@@ -369,10 +368,24 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         slide_id = slide_ids.iloc[batch_idx]
 
         samples_per_epoch=args.samples_per_epoch
-        if args.samples_per_epoch>len(coords):
-            samples_per_epoch=len(coords)
-            print("full slide used")
+        if total_samples_per_slide>=len(coords):
+            print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
+            data_sample=data
+            logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
+            acc_logger.log(Y_hat, label)
+            loss = loss_fn(logits, label)
+            loss_value = loss.item()
+            train_loss += loss_value
+            error = calculate_error(Y_hat, label)
+            train_error += error
+
+            # backward pass
+            loss.backward()
+            # step
+            optimizer.step()
+            continue
+        
         ## First epoch (fully random sampling)
         sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_epoch,replace=False))
 
@@ -382,9 +395,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
         
         attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-        attn_scores_list=raw_attention[0].cpu().tolist()
 
-        all_attentions=attention_scores
         Y_hats.append(Y_hat)
         labels.append(label)
         Y_probs.append(Y_prob)
@@ -400,38 +411,45 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         neighbors=args.sampling_neighbors
         sampling_weights=np.zeros(len(coords))
 
-        for epoch_count in range(args.sampling_epochs-1):
+        for epoch_count in range(args.sampling_epochs-2):
             #sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_epoch*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
-            all_attentions=all_attentions/max(all_attentions)
             
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             
-            ## assuming args.use_all_samples here
-            if epoch_count==args.sampling_epochs-2:
-                for sample_idx in all_sample_idxs:
-                    sampling_weights[sample_idx]=0
-                sampling_weights=sampling_weights/max(sampling_weights)
-                sampling_weights=sampling_weights/sum(sampling_weights)
-                sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
-                all_sample_idxs=all_sample_idxs+sample_idxs
-                data_sample=data[all_sample_idxs].to(device)
-            else:
-                data_sample=data[sample_idxs].to(device)
+            data_sample=data[sample_idxs].to(device)
             
-            #with torch.no_grad():
-            #    logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
-            #attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-            #all_attention=attention_scores
-            #attention_scores=attention_scores[-samples_per_epoch:]
+            with torch.no_grad():
+                logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
             #attn_scores_list=raw_attention[0].cpu().tolist()
         
+        #print("sample_idxs:",len(all_sample_idxs))
+        #assert 1==2,"testing"
         
-
+        ## final sample
+        num_random=int(samples_per_epoch*sampling_random)
+        attention_scores=attention_scores/max(attention_scores)
+        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
+        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+        all_sample_idxs=all_sample_idxs+sample_idxs
+        if args.use_all_samples:
+            for sample_idx in all_sample_idxs:
+                sampling_weights[sample_idx]=0
+            sampling_weights=sampling_weights/max(sampling_weights)
+            sampling_weights=sampling_weights/sum(sampling_weights)
+            sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
+            all_sample_idxs=all_sample_idxs+sample_idxs
+            data_sample=data[all_sample_idxs].to(device)
+        else:
+            assert 1==2,"Have only implemented use_all_samples so far"
+        
+        print("sample_idxs:",len(all_sample_idxs))
+        assert 1==2,"testing"
         logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
         acc_logger.log(Y_hat, label)

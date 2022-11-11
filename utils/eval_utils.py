@@ -219,7 +219,9 @@ def summary_sampling(model, dataset, args):
     
     num_random=int(args.samples_per_epoch*args.sampling_random)
     
-
+    
+    total_samples_per_slide = (args.samples_per_epoch*args.sampling_epochs)+args.final_sample_size
+    print("total_samples_per_slide",total_samples_per_slide)
     for batch_idx, contents in enumerate(iterator):
         print('\nprogress: {}/{}'.format(batch_idx, num_slides))
 
@@ -253,8 +255,33 @@ def summary_sampling(model, dataset, args):
         
         ## Generate initial sample_idsx
         if args.samples_per_epoch>len(coords):
-            print("full slide used")
-            samples_per_epoch=len(coords)
+            if total_samples_per_slide>=len(coords):
+                print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
+                if args.eval_features:
+                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
+                    data_sample.to(device)
+                else:
+                    data_sample=data
+            with torch.no_grad():
+                logits, Y_prob, Y_hat, _, _ = model(data_sample)
+
+            acc_logger.log(Y_hat, label)
+            probs = Y_prob.cpu().numpy()
+                                   
+            all_probs[batch_idx] = probs
+            all_preds[batch_idx] = Y_hat.item()
+            if args.eval_features:
+                patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
+                error = calculate_error(Y_hat, label_tensor)
+            else:
+                all_labels[batch_idx] = label.item()
+                patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
+                error = calculate_error(Y_hat, label)
+            test_error += error
+            continue
+
+        ## Inital sample
         sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
         all_sample_idxs=sample_idxs
 
@@ -289,7 +316,6 @@ def summary_sampling(model, dataset, args):
         if args.plot_sampling_gif:
             slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_epoch=False)
         
-        all_attentions=attention_scores
         Y_hats.append(Y_hat)
         labels.append(label)
         Y_probs.append(Y_prob)
@@ -307,7 +333,6 @@ def summary_sampling(model, dataset, args):
             sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_epoch*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
-            all_attentions=all_attentions/max(all_attentions)
                                                                         
             ## Take final sample ids if final sampling epoch reached
             if epoch_count==args.sampling_epochs-2:
@@ -388,7 +413,7 @@ def summary_sampling(model, dataset, args):
         if args.eval_features:
             patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
             error = calculate_error(Y_hat, label_tensor)
-        if not args.eval_features:
+        else:
             all_labels[batch_idx] = label.item()
             patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
             error = calculate_error(Y_hat, label)
