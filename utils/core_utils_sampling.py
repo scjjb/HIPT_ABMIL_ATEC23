@@ -323,7 +323,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         writer.add_scalar('train/clustering_loss', train_inst_loss, epoch)
 
 def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer = None, loss_fn = None):   
-    num_random=int(args.samples_per_epoch*args.sampling_random)
+    num_random=int(args.samples_per_iteration*args.sampling_random)
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -335,7 +335,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     else:
         sampling_update='max'
 
-    ## Collecting Y_hats and labels to view performance across sampling epochs
+    ## Collecting Y_hats and labels to view performance across sampling iterations
     Y_hats=[]
     labels=[]
     Y_probs=[]
@@ -357,8 +357,8 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         
     print('\n')
 
-    total_samples_per_slide = (args.samples_per_epoch*args.sampling_epochs)+args.final_sample_size
-    print("total_samples_per_slide",total_samples_per_slide)
+    total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
+    print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
@@ -367,7 +367,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         data, label, coords = data.to(device), label.to(device), coords.to(device)
         slide_id = slide_ids.iloc[batch_idx]
 
-        samples_per_epoch=args.samples_per_epoch
+        samples_per_iteration=args.samples_per_iteration
         if total_samples_per_slide>=len(coords):
             print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
             data_sample=data
@@ -386,8 +386,8 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             optimizer.step()
             continue
         
-        ## First epoch (fully random sampling)
-        sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_epoch,replace=False))
+        ## First sampling iteration (fully random sampling)
+        sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_iteration,replace=False))
 
         all_sample_idxs=sample_idxs
         data_sample=data[sample_idxs].to(device)
@@ -407,17 +407,17 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
 
         sampling_random=args.sampling_random
 
-        ## Subsequent epochs
+        ## Subsequent sampling iterations
         neighbors=args.sampling_neighbors
         sampling_weights=np.zeros(len(coords))
 
-        for epoch_count in range(args.sampling_epochs-2):
+        for iteration_count in range(args.resampling_iterations-2):
             #sampling_random=max(sampling_random-args.sampling_random_delta,0)
-            num_random=int(samples_per_epoch*sampling_random)
+            num_random=int(samples_per_iteration*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
             
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             
@@ -426,16 +426,12 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-            #attn_scores_list=raw_attention[0].cpu().tolist()
-        
-        #print("sample_idxs:",len(all_sample_idxs))
-        #assert 1==2,"testing"
         
         ## final sample
-        num_random=int(samples_per_epoch*sampling_random)
+        num_random=int(samples_per_iteration*sampling_random)
         attention_scores=attention_scores/max(attention_scores)
         sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
-        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
+        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
             for sample_idx in all_sample_idxs:
@@ -448,8 +444,6 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         else:
             assert 1==2,"Have only implemented use_all_samples so far"
         
-        print("sample_idxs:",len(all_sample_idxs))
-        assert 1==2,"testing"
         logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
         acc_logger.log(Y_hat, label)
@@ -483,9 +477,10 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     if writer:
         writer.add_scalar('train/loss', train_loss, epoch)
         writer.add_scalar('train/error', train_error, epoch)
-
+        
    
 def validate_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
+            #attn_scores_list=raw_attention[0].cpu().tolist()
     #assert 1==2,"validate_sampling not yet implemented"
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()

@@ -6,7 +6,7 @@ import glob
 from PIL import Image
 
 
-def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_epoch,num_random,grid=False,coords=None):
+def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_iteration,num_random,grid=False,coords=None):
     if grid:
         assert len(coords)>0
         x_coords=[x.item() for x,y in coords]
@@ -16,7 +16,7 @@ def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_p
         min_y=min(y_coords)
         max_y=max(y_coords)
         
-        num_of_splits=int(math.sqrt(samples_per_epoch))
+        num_of_splits=int(math.sqrt(samples_per_iteration))
         x_borders=np.linspace(min_x,max_x+0.00001,num_of_splits+1)
         y_borders=np.linspace(min_y,max_y+0.00001,num_of_splits+1)
         
@@ -29,15 +29,15 @@ def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_p
         for coords_in_split in coords_splits:
             if len(coords_in_split)>0:
                 sample_idxs=sample_idxs+list(np.random.choice(coords_in_split, size=1,replace=False))
-        if len(sample_idxs)<samples_per_epoch:
-            sample_idxs=sample_idxs+list(np.random.choice(range(0,len(coords)), size=samples_per_epoch-len(sample_idxs),replace=False))
+        if len(sample_idxs)<samples_per_iteration:
+            sample_idxs=sample_idxs+list(np.random.choice(range(0,len(coords)), size=samples_per_iteration-len(sample_idxs),replace=False))
 
     else:
         available_idxs=set(range(idxs_length))
         nonrandom_idxs=[]
         random_idxs=[]
-        if int(samples_per_epoch-num_random)>0:
-            nonrandom_idxs=list(np.random.choice(range(idxs_length),p=sampling_weights,size=int(samples_per_epoch-num_random),replace=False))
+        if int(samples_per_iteration-num_random)>0:
+            nonrandom_idxs=list(np.random.choice(range(idxs_length),p=sampling_weights,size=int(samples_per_iteration-num_random),replace=False))
             previous_samples=previous_samples+nonrandom_idxs
             available_idxs=available_idxs-set(previous_samples)
         if num_random>0:
@@ -105,7 +105,7 @@ def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     plt.savefig('../mount_outputs/sampling_maps/{}.png'.format(slide_id), dpi=300)
     plt.close()
     
-def plot_sampling_gif(slide_id,sample_coords,args,epoch,slide=None,final_epoch=False,thumbnail_size=1000):
+def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_iteration=False,thumbnail_size=1000):
     if slide==None:
         slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
     
@@ -115,12 +115,12 @@ def plot_sampling_gif(slide_id,sample_coords,args,epoch,slide=None,final_epoch=F
     x_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
     y_values=[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
     plt.scatter(x_values,y_values,s=6)
-    plt.savefig('../mount_outputs/sampling_maps/{}_epoch{}.png'.format(slide_id,epoch), dpi=300)
+    plt.savefig('../mount_outputs/sampling_maps/{}_iter{}.png'.format(slide_id,iteration), dpi=300)
     plt.close()
     
-    if final_epoch:
-        print("Plotting gif for slide {} over {} epochs".format(slide_id,epoch+1))
-        fp_in = "../mount_outputs/sampling_maps/{}_epoch*.png".format(slide_id)
+    if final_iteration:
+        print("Plotting gif for slide {} over {} iterations".format(slide_id,iteration+1))
+        fp_in = "../mount_outputs/sampling_maps/{}_iter*.png".format(slide_id)
         fp_out = "../mount_outputs/sampling_maps/{}.gif".format(slide_id)
         imgs = (Image.open(f) for f in sorted(glob.glob(fp_in)))
         img = next(imgs)  # extract first image from iterator

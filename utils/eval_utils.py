@@ -170,7 +170,7 @@ def summary_sampling(model, dataset, args):
     else:
         sampling_update='max'
 
-    ## Collecting Y_hats and labels to view performance across sampling epochs
+    ## Collecting Y_hats and labels to view performance across resampling iterations
     Y_hats=[]
     labels=[]
     Y_probs=[]
@@ -217,15 +217,15 @@ def summary_sampling(model, dataset, args):
     all_preds = np.zeros(num_slides)
     patient_results = {}
     
-    num_random=int(args.samples_per_epoch*args.sampling_random)
+    num_random=int(args.samples_per_iteration*args.sampling_random)
     
     
-    total_samples_per_slide = (args.samples_per_epoch*args.sampling_epochs)+args.final_sample_size
-    print("total_samples_per_slide",total_samples_per_slide)
+    total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
+    print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, contents in enumerate(iterator):
         print('\nprogress: {}/{}'.format(batch_idx, num_slides))
 
-        samples_per_epoch=args.samples_per_epoch
+        samples_per_iteration=args.samples_per_iteration
 
         if args.eval_features:
             label=all_labels[batch_idx]
@@ -254,15 +254,15 @@ def summary_sampling(model, dataset, args):
             slide_id=slide_id[0][0]
         
         ## Generate initial sample_idsx
-        if args.samples_per_epoch>len(coords):
-            if total_samples_per_slide>=len(coords):
-                print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
-                if args.eval_features:
-                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
-                    data_sample.to(device)
-                else:
-                    data_sample=data
+        print("available patches:", len(coords))
+        if total_samples_per_slide>=len(coords):
+            print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
+            if args.eval_features:
+                loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
+                data_sample.to(device)
+            else:
+                data_sample=data
             with torch.no_grad():
                 logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
@@ -282,7 +282,7 @@ def summary_sampling(model, dataset, args):
             continue
 
         ## Inital sample
-        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_epoch,num_random=samples_per_epoch,grid=args.initial_grid_sample,coords=coords)
+        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
         all_sample_idxs=sample_idxs
 
         if args.eval_features:
@@ -305,7 +305,7 @@ def summary_sampling(model, dataset, args):
         attn_scores_list=raw_attention[0].cpu().tolist()
         
         if not args.use_all_samples:
-            if args.samples_per_epoch<=args.retain_best_samples:
+            if args.samples_per_iteration<=args.retain_best_samples:
                 best_sample_idxs=sample_idxs
                 best_attn_scores=attn_scores_list
             else:
@@ -314,7 +314,7 @@ def summary_sampling(model, dataset, args):
                 best_attn_scores=[attn_scores_list[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
 
         if args.plot_sampling_gif:
-            slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_epoch=False)
+            slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_iteration=False)
         
         Y_hats.append(Y_hat)
         labels.append(label)
@@ -325,45 +325,45 @@ def summary_sampling(model, dataset, args):
         nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
         distances, indices = nbrs.kneighbors(X[sample_idxs])
         
-        ## Subsequent epochs
+        ## Subsequent iterations
         sampling_random=args.sampling_random
         neighbors=args.sampling_neighbors
         sampling_weights=np.zeros(len(coords))
-        for epoch_count in range(args.sampling_epochs-1):
+        for iteration_count in range(args.resampling_iterations-1):
             sampling_random=max(sampling_random-args.sampling_random_delta,0)
-            num_random=int(samples_per_epoch*sampling_random)
+            num_random=int(samples_per_iteration*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
                                                                         
-            ## Take final sample ids if final sampling epoch reached
-            if epoch_count==args.sampling_epochs-2:
-                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                                            sampling_update=sampling_update,repeats_allowed=False)
-                if args.use_all_samples:
-                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
-                    sample_idxs=sample_idxs+all_sample_idxs
-                    all_sample_idxs=sample_idxs
-                else:
-                    sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
-                    all_sample_idxs=all_sample_idxs+sample_idxs
-                    sample_idxs=sample_idxs+best_sample_idxs
+            ## Also take final sample ids if final sampling iteration reached
+            #if iteration_count==args.resampling_iterations-2:
+            #    sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+            #                                sampling_update=sampling_update,repeats_allowed=False)
+            #    if args.use_all_samples:
+            #        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
+            #        sample_idxs=sample_idxs+all_sample_idxs
+            #        all_sample_idxs=sample_idxs
+            #    else:
+            #        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+            #        all_sample_idxs=all_sample_idxs+sample_idxs
+            #        sample_idxs=sample_idxs+best_sample_idxs
                 
-                if args.plot_sampling:
-                    plot_sampling(slide_id,coords[sample_idxs],args)
-                if args.plot_sampling_gif:
-                    plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=True)
+            #    if args.plot_sampling:
+            #        plot_sampling(slide_id,coords[sample_idxs],args)
+            #    if args.plot_sampling_gif:
+            #        plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
             
-            else:
-                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-                                            sampling_update=sampling_update,repeats_allowed=False)
-                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_epoch,num_random)
-                distances, indices = nbrs.kneighbors(X[sample_idxs])
-                all_sample_idxs=all_sample_idxs+sample_idxs
+            #else:
+            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                                        sampling_update=sampling_update,repeats_allowed=False)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
+            distances, indices = nbrs.kneighbors(X[sample_idxs])
+            all_sample_idxs=all_sample_idxs+sample_idxs
                 
-                if args.plot_sampling_gif:
-                    if args.use_all_samples:
-                        plot_sampling_gif(slide_id,coords[all_sample_idxs],args,epoch_count+1,slide,final_epoch=False)
-                    else:
-                        plot_sampling_gif(slide_id,coords[sample_idxs],args,epoch_count+1,slide,final_epoch=False)
+            if args.plot_sampling_gif:
+                if args.use_all_samples:
+                    plot_sampling_gif(slide_id,coords[all_sample_idxs],args,iteration_count+1,slide,final_iteration=False)
+                else:
+                    plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=False)
 
             if args.eval_features:
                 sampled_data.update_sample(sample_idxs)
@@ -371,7 +371,7 @@ def summary_sampling(model, dataset, args):
                 data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
                 all_previous_features=torch.cat((all_previous_features,data_sample))
                 if args.use_all_samples:
-                    if epoch_count==args.sampling_epochs-2: 
+                    if iteration_count==args.sampling_iterations-2: 
                         data_sample=all_previous_features
                 data_sample.to(device)
             else:
@@ -381,8 +381,7 @@ def summary_sampling(model, dataset, args):
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-            all_attention=attention_scores
-            attention_scores=attention_scores[-samples_per_epoch:]
+            attention_scores=attention_scores[-samples_per_iteration:]
             attn_scores_list=raw_attention[0].cpu().tolist()
 
             if not args.use_all_samples:
@@ -396,7 +395,7 @@ def summary_sampling(model, dataset, args):
                     attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
                     best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                     best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-            
+            print("len all sample idxs",len(all_sample_idxs))
             Y_hats.append(Y_hat)
             labels.append(label)
             Y_probs.append(Y_prob)
@@ -404,6 +403,39 @@ def summary_sampling(model, dataset, args):
                                                              
             neighbors=neighbors-args.sampling_neighbors_delta
         
+        ## Final sampling iteration
+        sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+                                sampling_update=sampling_update,repeats_allowed=False)
+        if args.use_all_samples:
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
+            sample_idxs=sample_idxs+all_sample_idxs
+            all_sample_idxs=sample_idxs
+        else:
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+            all_sample_idxs=all_sample_idxs+sample_idxs
+            sample_idxs=sample_idxs+best_sample_idxs
+    
+        print("len all sample idxs",len(all_sample_idxs))
+
+        if args.plot_sampling:
+            plot_sampling(slide_id,coords[sample_idxs],args)
+        if args.plot_sampling_gif:
+            plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
+
+        if args.eval_features:
+            sampled_data.update_sample(sample_idxs)
+            loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+            data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
+            all_previous_features=torch.cat((all_previous_features,data_sample))
+            if args.use_all_samples:
+                data_sample=all_previous_features
+            data_sample.to(device)
+        else:
+            data_sample=data[sample_idxs].to(device)
+
+        with torch.no_grad():
+            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+
         acc_logger.log(Y_hat, label)
         probs = Y_prob.cpu().numpy()
         
@@ -422,18 +454,18 @@ def summary_sampling(model, dataset, args):
         
     all_errors=[]
     if args.eval_features:
-        for i in range(args.sampling_epochs):
-            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(all_labels)),3))
+        for i in range(args.resampling_iterations):
+            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.resampling_iterations]),torch.Tensor(all_labels)),3))
     else:
-        for i in range(args.sampling_epochs):
-            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.sampling_epochs]),torch.Tensor(labels[i::args.sampling_epochs])),3))
+        for i in range(args.resampling_iterations):
+            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.resampling_iterations]),torch.Tensor(labels[i::args.resampling_iterations])),3))
 
     all_aucs=[]
-    for i in range(args.sampling_epochs):
+    for i in range(args.resampling_iterations):
         if len(np.unique(all_labels)) == 2:
-            auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.sampling_epochs]])
+            auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.resampling_iterations]])
         else:
-            assert 1==2,"AUC scoring by epoch not implemented for multi-class classification yet"
+            assert 1==2,"AUC scoring by iteration not implemented for multi-class classification yet"
         all_aucs.append(round(auc_score,3))
 
     test_error /= num_slides
@@ -441,7 +473,7 @@ def summary_sampling(model, dataset, args):
     if len(np.unique(all_labels)) == 2:
         auc_score = roc_auc_score(all_labels, all_probs[:, 1])
     else:
-        assert  1==2,"AUC scoring by epoch not implemented for multi-class classification yet"
+        assert  1==2,"AUC scoring by iteration not implemented for multi-class classification yet"
 
     results_dict = {'Y': all_labels, 'Y_hat': all_preds}
     for c in range(args.n_classes):

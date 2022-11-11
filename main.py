@@ -121,9 +121,9 @@ parser.add_argument('--csv_path',type=str,default=None,help='path to dataset_csv
 ## sampling options
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')
 parser.add_argument('--sampling_type', type=str, choices=['spatial','textural'],default='spatial',help='type of sampling to use')
-parser.add_argument('--samples_per_epoch', type=int, default=100, help='number of patches to sample per sampling epoch')
-parser.add_argument('--sampling_epochs', type=int, default=10, help='number of sampling epochs')
-parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per epoch')
+parser.add_argument('--samples_per_iteration', type=int, default=100, help='number of patches to sample per sampling iteration')
+parser.add_argument('--resampling_iterations', type=int, default=10, help='number of resampling iterations (not including the initial sample)')
+parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per iteration')
 parser.add_argument('--sampling_neighbors', type=int, default=20, help='number of nearest neighbors to consider when resampling')
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
 parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
