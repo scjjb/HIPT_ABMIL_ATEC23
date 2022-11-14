@@ -84,7 +84,7 @@ def main():
     class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
     stopper=ray.tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=40)
     
-    tuner = tune.Tuner(tune.with_resources(partial(train_sampling_tuning,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":20,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
+    tuner = tune.Tuner(tune.with_resources(partial(train_sampling_tuning,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":10,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
     results = tuner.fit()
 
     results_df=results.get_dataframe()
