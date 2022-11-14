@@ -1,4 +1,5 @@
-import numpy as np
+#import numpy as np
+import cupy as np
 import torch
 import torch.nn as nn
 from models.model_mil import MIL_fc, MIL_fc_mc
@@ -466,7 +467,7 @@ def summary_sampling(model, dataset, args):
             for i in range(args.resampling_iterations):
                 auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.resampling_iterations]])
                 all_aucs.append(round(auc_score,3))
-        print("all aucs: ",all_aucs)
+            print("all aucs: ",all_aucs)
         else:
             print("scoring by iteration unavailable as not all slides could be sampled")
     else:
