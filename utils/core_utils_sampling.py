@@ -13,7 +13,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
 from sklearn.neighbors import NearestNeighbors
-
+from ray import tune
 
 class Accuracy_Logger(object):
     """Accuracy logger"""
@@ -101,11 +101,19 @@ class EarlyStopping:
         self.val_loss_min = val_loss
 
 
-def train_sampling(datasets, cur, class_counts, args):
+def train_sampling(config,datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
     assert 0<=args.sampling_random<=1,"sampling_random needs to be between 0 and 1"
+
+    if args.tuning:
+        args.lr=config["lr"]
+        args.reg=config["reg"]
+        args.drop_out=config["drop_out"]
+        args.B=config["B"]
+        args.no_sampling_epochs=config["no_sample"]
+        args.weight_smoothing=config["weight_smoothing"]
 
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
@@ -207,22 +215,28 @@ def train_sampling(datasets, cur, class_counts, args):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
             if epoch<args.no_sampling_epochs:
                 train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
-                stop = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
+                stop, val_error, val_loss,val_auc = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
                     early_stopping, writer, loss_fn, args.results_dir)
             else:
-                train_loop_clam_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
-                stop = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
+                train_loop_clam_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args.bag_weight, args, writer, loss_fn)
+                stop, val_error, val_loss,val_auc = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
                     early_stopping, writer, loss_fn, args.results_dir)
         else:
             if epoch<args.no_sampling_epochs:
                 train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
-                stop = validate(cur, epoch, model, val_loader, args.n_classes, 
+                stop, val_error, val_loss,val_auc = validate(cur, epoch, model, val_loader, args.n_classes, 
                     early_stopping, writer, loss_fn, args.results_dir)
             else:
                 train_loop_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args, writer, loss_fn)
-                stop = validate_sampling(cur, epoch, model, val_loader, args.n_classes,
+                stop, val_error, val_loss, val_auc = validate_sampling(cur, epoch, model, val_loader, args.n_classes,
                     early_stopping, writer, loss_fn, args.results_dir)
         
+        if args.tuning:
+            with tune.checkpoint_dir(epoch) as checkpoint_dir:
+                path = os.path.join(checkpoint_dir, "checkpoint")
+                torch.save((model.state_dict(), optimizer.state_dict()), path)
+            tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
+
         if stop: 
             break
 
@@ -253,7 +267,7 @@ def train_sampling(datasets, cur, class_counts, args):
     return results_dict, test_auc, val_auc, 1-test_error, 1-val_error 
 
 
-def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_weight, args, writer = None, loss_fn = None):
     #assert 1==2,"train_loop_clam_sampling not yet implemented"
     num_random=int(args.samples_per_iteration*args.sampling_random)
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -662,9 +676,9 @@ def validate_sampling(cur, epoch, model, loader, n_classes, early_stopping = Non
             with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
                 f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
-            return True
+            return True, val_error, val_loss, auc
 
-    return False
+    return False, val_error, val_loss, auc
 
 def validate_clam_sampling(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir = None):
     #assert 1==2,"validate_clam_sampling not yet implemented"
@@ -756,9 +770,9 @@ def validate_clam_sampling(cur, epoch, model, loader, n_classes, early_stopping 
             with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
                 f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
-            return True
+            return True, val_error, val_loss, auc
 
-    return False
+    return False, val_error, val_loss, auc
 
 def summary(model, loader, n_classes):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")

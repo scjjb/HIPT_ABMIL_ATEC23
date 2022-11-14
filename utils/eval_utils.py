@@ -335,25 +335,6 @@ def summary_sampling(model, dataset, args):
             num_random=int(samples_per_iteration*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
                                                                         
-            ## Also take final sample ids if final sampling iteration reached
-            #if iteration_count==args.resampling_iterations-2:
-            #    sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
-            #                                sampling_update=sampling_update,repeats_allowed=False)
-            #    if args.use_all_samples:
-            #        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
-            #        sample_idxs=sample_idxs+all_sample_idxs
-            #        all_sample_idxs=sample_idxs
-            #    else:
-            #        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
-            #        all_sample_idxs=all_sample_idxs+sample_idxs
-            #        sample_idxs=sample_idxs+best_sample_idxs
-                
-            #    if args.plot_sampling:
-            #        plot_sampling(slide_id,coords[sample_idxs],args)
-            #    if args.plot_sampling_gif:
-            #        plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
-            
-            #else:
             sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
                                         sampling_update=sampling_update,repeats_allowed=False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
@@ -372,7 +353,7 @@ def summary_sampling(model, dataset, args):
                 data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
                 all_previous_features=torch.cat((all_previous_features,data_sample))
                 if args.use_all_samples:
-                    if iteration_count==args.sampling_iterations-2: 
+                    if iteration_count==args.resampling_iterations-2: 
                         data_sample=all_previous_features
                 data_sample.to(device)
             else:
@@ -396,7 +377,6 @@ def summary_sampling(model, dataset, args):
                     attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
                     best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
                     best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-            print("len all sample idxs",len(all_sample_idxs))
             Y_hats.append(Y_hat)
             labels.append(label)
             Y_probs.append(Y_prob)
@@ -416,8 +396,6 @@ def summary_sampling(model, dataset, args):
             all_sample_idxs=all_sample_idxs+sample_idxs
             sample_idxs=sample_idxs+best_sample_idxs
     
-        print("len all sample idxs",len(all_sample_idxs))
-
         if args.plot_sampling:
             plot_sampling(slide_id,coords[sample_idxs],args)
         if args.plot_sampling_gif:
@@ -452,7 +430,8 @@ def summary_sampling(model, dataset, args):
             error = calculate_error(Y_hat, label)
 
         test_error += error
-        
+        print("len all sample idxs",len(all_sample_idxs))
+
     all_errors=[]
     if args.eval_features:
         for i in range(args.resampling_iterations):
@@ -473,7 +452,6 @@ def summary_sampling(model, dataset, args):
     else:
         print("AUC scoring by iteration not implemented for multi-class classification yet")
         
-
     test_error /= num_slides
     aucs = []
     if len(np.unique(all_labels)) == 2:
