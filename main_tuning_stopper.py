@@ -118,7 +118,7 @@ def main():
     #run_config={stop=stopper}
     #tune_config={max_concurrent_trails=10}
     #tuner = tune.Tuner(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args), param_space=search_space, run_config=run_config, tune_config=tune_config)
-    tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":20,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
+    tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),{"cpu":10,"gpu":0.08333}),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_samples))
     results = tuner.fit()
     #print(results.get_best_result(metric="loss", mode="min").config)
 #ValueError: You passed a `metric` or `mode` argument to `tune.run()`, but the scheduler you are using was already instantiated with their own `metric` and `mode` parameters. Either remove the arguments from your scheduler or from your call to `tune.run()`

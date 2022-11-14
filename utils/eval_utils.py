@@ -329,7 +329,7 @@ def summary_sampling(model, dataset, args):
         ## Subsequent iterations
         sampling_random=args.sampling_random
         neighbors=args.sampling_neighbors
-        sampling_weights=np.zeros(len(coords))
+        sampling_weights=np.full(shape=len(coords),fill_value=0.001)
         for iteration_count in range(args.resampling_iterations-1):
             sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_iteration*sampling_random)
