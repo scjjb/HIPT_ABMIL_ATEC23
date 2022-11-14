@@ -53,7 +53,7 @@ def main():
             "lr": tune.loguniform(5e-5,1e-3),
             "B": tune.choice([4,6,16,32,64,128]),
             "no_sample": tune.choice([0,10,20,30])
-            }
+            "weight_smoothing": tune.loguniform([0.001,0.5])}
 
     scheduler = ASHAScheduler(
                 metric="loss",
@@ -151,6 +151,7 @@ parser.add_argument('--sampling_neighbors', type=int, default=20, help='number o
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
 parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
 parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
+parser.add_argument('--weight_smoothing',type=float,default=0.15,help='Power applied to attention scores to generate sampling weights')
 parser.add_argument('--use_all_samples',action='store_true', default=False, help='Use all previous samples in the final sample step')
 parser.add_argument('--no_sampling_epochs',type=int,default=20,help='number of epochs to complete full slide processing before beginning sampling')
 

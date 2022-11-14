@@ -112,6 +112,7 @@ def train_sampling_tuning(config,datasets, cur, class_counts, args):
     args.drop_out=config["drop_out"]
     args.B=config["B"]
     args.no_sampling_epochs=config["no_sample"]
+    args.weight_smoothing=config["weight_smoothing"]
 
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
@@ -426,7 +427,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             num_random=int(samples_per_iteration*sampling_random)
             attention_scores=attention_scores/max(attention_scores)
             
-            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=args.weight_smoothing, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
@@ -440,7 +441,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         ## final sample
         num_random=int(samples_per_iteration*sampling_random)
         attention_scores=attention_scores/max(attention_scores)
-        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
+        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=args.weight_smoothing, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
         sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
