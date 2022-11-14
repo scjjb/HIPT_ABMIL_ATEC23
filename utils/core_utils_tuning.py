@@ -205,18 +205,15 @@ def train(config, datasets, cur, class_counts, args):
             train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
             stop, val_error, val_loss,val_auc = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
-            with tune.checkpoint_dir(epoch) as checkpoint_dir:
-                path = os.path.join(checkpoint_dir, "checkpoint")
-                torch.save((model.state_dict(), optimizer.state_dict()), path)
-            tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
         else:
             train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
             stop,val_error, val_loss,val_auc = validate(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
-            with tune.checkpoint_dir(epoch) as checkpoint_dir:
-                path = os.path.join(checkpoint_dir, "checkpoint")
-                torch.save((model.state_dict(), optimizer.state_dict()), path)
-            tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
+        
+        with tune.checkpoint_dir(epoch) as checkpoint_dir:
+            path = os.path.join(checkpoint_dir, "checkpoint")
+            torch.save((model.state_dict(), optimizer.state_dict()), path)
+        tune.report(loss=val_loss, accuracy=1-val_error, auc=val_auc)
         if stop: 
             break
 
