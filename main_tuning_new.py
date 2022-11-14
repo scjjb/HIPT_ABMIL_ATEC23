@@ -52,8 +52,8 @@ def main():
             "drop_out": tune.uniform(0.0,0.99),
             "lr": tune.loguniform(5e-5,1e-3),
             "B": tune.choice([4,6,16,32,64,128]),
-            "no_sample": tune.choice([0,10,20,30])
-            "weight_smoothing": tune.loguniform([0.001,0.5])}
+            "no_samp": tune.choice([0,10,20,30]),
+            "power": tune.loguniform(0.001,0.5)}
 
     scheduler = ASHAScheduler(
                 metric="loss",
@@ -64,7 +64,7 @@ def main():
 
 
     reporter = CLIReporter(
-                metric_columns=["loss", "accuracy", "auc", "training_iteration","total time (s)"],
+                metric_columns=["loss", "auc", "training_iteration"],
                 max_report_frequency=5,
                 max_progress_rows=20,
                 metric="loss",

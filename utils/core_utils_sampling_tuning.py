@@ -111,8 +111,8 @@ def train_sampling_tuning(config,datasets, cur, class_counts, args):
     args.reg=config["reg"]
     args.drop_out=config["drop_out"]
     args.B=config["B"]
-    args.no_sampling_epochs=config["no_sample"]
-    args.weight_smoothing=config["weight_smoothing"]
+    args.no_sampling_epochs=config["no_samp"]
+    args.weight_smoothing=config["power"]
 
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
