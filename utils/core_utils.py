@@ -193,12 +193,12 @@ def train(datasets, cur, class_counts, args):
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
             train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
-            stop = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
+            stop, _, _, _ = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
         
         else:
             train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
-            stop = validate(cur, epoch, model, val_loader, args.n_classes, 
+            stop, _, _, _ = validate(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
         
         if stop: 
@@ -402,9 +402,9 @@ def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer
             with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
                 f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
-            return True
+            return True, val_error, val_loss, auc
 
-    return False
+    return False, val_error, val_loss, auc
 
 def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir = None):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -495,9 +495,9 @@ def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, w
             with open(os.path.join(results_dir,'early_stopping{}.txt'.format(cur)), 'w') as f:
                 f.write('Finished at epoch {}'.format(epoch))
             print("Early stopping")
-            return True
+            return True, val_error, val_loss, auc
 
-    return False
+    return False, val_error, val_loss, auc
 
 def summary(model, loader, n_classes):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")

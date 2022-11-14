@@ -10,6 +10,7 @@ from utils.file_utils import save_pkl, load_pkl
 from utils.utils import *
 from utils.core_utils import train
 from utils.core_utils_sampling import train_sampling
+#from utils.core_utils_sampling_tuning import train_sampling_tuning
 from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic_MIL_Dataset
 
 # pytorch imports
@@ -21,8 +22,12 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 
+from functools import partial
+from ray import tune
+from ray.air.config import RunConfig
+import ray
 
-def main(args):
+def main():
     # create results directory if necessary
     if not os.path.isdir(args.results_dir):
         os.mkdir(args.results_dir)
@@ -35,6 +40,39 @@ def main(args):
         end = args.k
     else:
         end = args.k_end
+    
+    if args.tuning:
+        ray.init(num_gpus=1)
+            
+        if args.hardware=='DGX':
+            hardware={"cpu":10,"gpu":0.08333}
+        else:
+            hardware={"cpu":1,"gpu":0.25}
+
+        search_space = {
+            "reg": tune.loguniform(1e-8,1e-2),
+            "drop_out": tune.uniform(0.0,0.99),
+            "lr": tune.loguniform(5e-5,1e-3),
+            "B": tune.choice([4,6,16,32,64,128]),
+            "no_sample": tune.choice([0,10,20,30]),
+            "weight_smoothing": tune.loguniform(0.001,0.5)}
+        
+        scheduler = tune.schedulers.ASHAScheduler(
+            metric="loss",
+            mode="min",
+            grace_period=40,
+            reduction_factor=3,
+            max_t=args.max_epochs)
+
+
+        reporter = tune.CLIReporter(
+            metric_columns=["loss", "auc", "training_iteration"],
+            max_report_frequency=5,
+            max_progress_rows=20,
+            metric="loss",
+            mode="min",
+            sort_by_metric=True)
+        
 
     all_test_auc = []
     all_val_auc = []
@@ -45,37 +83,54 @@ def main(args):
         seed_torch(args.seed)
         train_dataset, val_dataset, test_dataset = dataset.return_splits(from_id=False, 
                 csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
-        
+        datasets = (train_dataset, val_dataset, test_dataset)
+
         ##class_counts to be used in balanced cross entropy if enabled
+        class_counts=0
         if args.bag_loss == 'balanced_ce':
             class_counts_train=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
             class_counts_val=dataset.count_by_class(csv_path='{}/splits_{}.csv'.format(args.split_dir, i),split='val')
             class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
-        else:
-            class_counts=0
 
-        datasets = (train_dataset, val_dataset, test_dataset)
-        if args.sampling:
-            results, test_auc, val_auc, test_acc, val_acc  = train_sampling(datasets, i, class_counts, args)
+        if args.tuning:
+            stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=40)
+            tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
+            results = tuner.fit()
+            results_df=results.get_dataframe()
+            results_df.to_csv(args.tuning_output_file,index=False)
+
+            best_trial = results.get_best_result("loss", "min","all")
+            print("best trial:", best_trial)
+            print("Best trial config: {}".format(best_trial.config))
+            print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
+            print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
+            print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
+            
+
         else:
-            results, test_auc, val_auc, test_acc, val_acc  = train(datasets, i, class_counts, args)
+            if args.sampling:
+                results, test_auc, val_auc, test_acc, val_acc  = train_sampling(None,datasets, i, class_counts, args)
+            else:
+                results, test_auc, val_auc, test_acc, val_acc  = train(datasets, i, class_counts, args)
         
-        all_test_auc.append(test_auc)
-        all_val_auc.append(val_auc)
-        all_test_acc.append(test_acc)
-        all_val_acc.append(val_acc)
-        #write results to pkl
-        filename = os.path.join(args.results_dir, 'split_{}_results.pkl'.format(i))
-        save_pkl(filename, results)
+            all_test_auc.append(test_auc)
+            all_val_auc.append(val_auc)
+            all_test_acc.append(test_acc)
+            all_val_acc.append(val_acc)
+            #write results to pkl
+            filename = os.path.join(args.results_dir, 'split_{}_results.pkl'.format(i))
+            save_pkl(filename, results)
 
-    final_df = pd.DataFrame({'folds': folds, 'test_auc': all_test_auc, 
-        'val_auc': all_val_auc, 'test_acc': all_test_acc, 'val_acc' : all_val_acc})
+    
+    if not args.tuning:
+        final_df = pd.DataFrame({'folds': folds, 'test_auc': all_test_auc, 
+            'val_auc': all_val_auc, 'test_acc': all_test_acc, 'val_acc' : all_val_acc})
 
-    if len(folds) != args.k:
-        save_name = 'summary_partial_{}_{}.csv'.format(start, end)
-    else:
-        save_name = 'summary.csv'
-    final_df.to_csv(os.path.join(args.results_dir, save_name))
+        if len(folds) != args.k:
+            save_name = 'summary_partial_{}_{}.csv'.format(start, end)
+        else:
+            save_name = 'summary.csv'
+        final_df.to_csv(os.path.join(args.results_dir, save_name))
 
 # Generic training settings
 parser = argparse.ArgumentParser(description='Configurations for WSI Training')
@@ -128,8 +183,15 @@ parser.add_argument('--sampling_neighbors', type=int, default=20, help='number o
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
 parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
 parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
+parser.add_argument('--weight_smoothing',type=float,default=0.15,help='Power applied to attention scores to generate sampling weights')
 parser.add_argument('--use_all_samples',action='store_true', default=False, help='Use all previous samples in the final sample step')
 parser.add_argument('--no_sampling_epochs',type=int,default=20,help='number of epochs to complete full slide processing before beginning sampling')
+
+## tuning options
+parser.add_argument('--tuning', action='store_true', default=False, help='run hyperparameter tuning')
+parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
+parser.add_argument('--num_tuning_experiments',type=int,default=100,help="number of tuning experiments")
+parser.add_argument('--hardware',type=str, choices=['DGX','PC'], default='DGX',help='sets amount of CPU and GPU to use per experiment')
 
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
@@ -243,7 +305,7 @@ for key, val in settings.items():
     print("{}:  {}".format(key, val))        
 
 if __name__ == "__main__":
-    results = main(args)
+    results = main()
     print("finished!")
     print("end script")
 
