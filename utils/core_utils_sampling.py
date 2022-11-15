@@ -311,7 +311,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
     total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
-        print("Processing WSI number ", batch_idx)
+        #print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
         
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
@@ -500,7 +500,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
-        print("Processing WSI number ", batch_idx)
+        #print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
         
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
@@ -549,7 +549,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
 
         ## Subsequent sampling iterations
         neighbors=args.sampling_neighbors
-        sampling_weights=np.zeros(len(coords))
+        sampling_weights=np.full(shape=len(coords),fill_value=0.001)
 
         for iteration_count in range(args.resampling_iterations-2):
             #sampling_random=max(sampling_random-args.sampling_random_delta,0)
