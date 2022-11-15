@@ -407,7 +407,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         else:
             assert 1==2,"Have only implemented use_all_samples so far"
 
-        logits, Y_prob, Y_hat, _, instance_dict = model(data_sample, instance_eval=True)
+        logits, Y_prob, Y_hat, _, instance_dict = model(data_sample,label=label,instance_eval=True)
 
         acc_logger.log(Y_hat, label)
         loss = loss_fn(logits, label)
