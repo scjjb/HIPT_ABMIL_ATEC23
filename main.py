@@ -47,7 +47,7 @@ def main():
         if args.hardware=='DGX':
             hardware={"cpu":10,"gpu":0.08333}
         else:
-            hardware={"cpu":1,"gpu":0.25}
+            hardware={"cpu":1,"gpu":0.33333}
 
         search_space = {
             "reg": tune.loguniform(1e-8,1e-2),

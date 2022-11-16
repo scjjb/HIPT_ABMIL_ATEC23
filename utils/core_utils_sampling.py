@@ -205,9 +205,8 @@ def train_sampling(config,datasets, cur, class_counts, args):
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')
-    if args.early_stopping:
+    if args.early_stopping and not args.tuning:
         early_stopping = EarlyStopping(min_epochs = args.min_epochs, patience = 20, stop_epoch=20, verbose = True)
-
     else:
         early_stopping = None
     print('Done!')
