@@ -9,6 +9,7 @@ import math
 from utils.file_utils import save_pkl, load_pkl
 from utils.utils import *
 from utils.core_utils import train
+from utils.core_utils_tuning import train_tuning
 from utils.core_utils_sampling import train_sampling
 #from utils.core_utils_sampling_tuning import train_sampling_tuning
 from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic_MIL_Dataset
@@ -94,7 +95,10 @@ def main():
 
         if args.tuning:
             stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=40)
-            tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
+            if args.sampling:
+                tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
+            else:
+                tuner = tune.Tuner(tune.with_resources(partial(train,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
             results = tuner.fit()
             results_df=results.get_dataframe()
             results_df.to_csv(args.tuning_output_file,index=False)

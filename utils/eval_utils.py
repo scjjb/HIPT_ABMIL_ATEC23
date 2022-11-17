@@ -1,5 +1,5 @@
-#import numpy as np
-import cupy as np
+import numpy as np
+#import cupy as np
 import torch
 import torch.nn as nn
 from models.model_mil import MIL_fc, MIL_fc_mc
