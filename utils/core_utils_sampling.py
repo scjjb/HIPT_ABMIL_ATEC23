@@ -114,6 +114,8 @@ def train_sampling(config,datasets, cur, class_counts, args):
         args.B=config["B"]
         args.no_sampling_epochs=config["no_sample"]
         args.weight_smoothing=config["weight_smoothing"]
+        args.sampling_iterations=config["sampling_iterations"]
+        args.samples_per_iteration=int(960/(args.sampling_iterations))
 
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
