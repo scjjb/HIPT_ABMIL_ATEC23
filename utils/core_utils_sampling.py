@@ -213,6 +213,8 @@ def train_sampling(config,datasets, cur, class_counts, args):
 
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
+            assert args.samples_per_iteration>=args.B, "B too large for sampling"
+            assert args.final_sample_size>=args.B, "B too large for final sample"
             if epoch<args.no_sampling_epochs:
                 train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
                 stop, val_error, val_loss,val_auc = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
