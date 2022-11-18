@@ -8,7 +8,7 @@ import os
 import pandas as pd
 from utils.utils import *
 from utils.core_utils import Accuracy_Logger
-from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights, plot_sampling, plot_sampling_gif
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights, plot_sampling, plot_sampling_gif, plot_weighting
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import label_binarize
 import random
@@ -400,6 +400,8 @@ def summary_sampling(model, dataset, args):
             plot_sampling(slide_id,coords[sample_idxs],args)
         if args.plot_sampling_gif:
             plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
+        if args.plot_weighting:
+            plot_weighting(slide_id,coords,sampling_weights,args)
 
         if args.eval_features:
             sampled_data.update_sample(sample_idxs)

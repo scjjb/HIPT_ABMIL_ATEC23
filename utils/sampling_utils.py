@@ -4,7 +4,7 @@ import openslide
 import matplotlib.pyplot as plt
 import glob
 from PIL import Image
-
+from matplotlib import colors
 
 def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_iteration,num_random,grid=False,coords=None):
     if grid:
@@ -99,8 +99,8 @@ def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
     plt.figure()
     plt.imshow(img)
-    x_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
-    y_values=[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    x_values=[(x+128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    y_values=[(y+128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
     plt.scatter(x_values,y_values,s=6)
     plt.savefig('../mount_outputs/sampling_maps/{}.png'.format(slide_id), dpi=300)
     plt.close()
@@ -112,8 +112,8 @@ def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_ite
     img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
     plt.figure()
     plt.imshow(img)
-    x_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
-    y_values=[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    x_values=[(x+128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
+    y_values=[(y+128)*(thumbnail_size/max(slide.dimensions)) for x,y in sample_coords.tolist()]
     plt.scatter(x_values,y_values,s=6)
     plt.savefig('../mount_outputs/sampling_maps/{}_iter{}.png'.format(slide_id,iteration), dpi=300)
     plt.close()
@@ -129,3 +129,30 @@ def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_ite
     return slide
 
 
+def plot_weighting(slide_id,coords,weights,args,thumbnail_size=3000):
+    print("Plotting final weights CHECK THESE ARE ACTUALLY FINAL for slide {}.".format(slide_id))
+
+    slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
+    img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
+    plt.figure()
+    plt.imshow(img)
+    #weights=weights.cpu()
+    #x_values=[(x-128)*(thumbnail_size/max(slide.dimensions)) for x,y in coords.tolist()]
+    #y_values=[(y-128)*(thumbnail_size/max(slide.dimensions)) for x,y in coords.tolist()]
+    x_values, y_values = coords.T
+    x_values=(x_values+128)*(thumbnail_size/max(slide.dimensions))
+    y_values=(y_values+128)*(thumbnail_size/max(slide.dimensions))
+    x_values=x_values.cpu()
+    y_values=y_values.cpu()
+    #alphas=weights/max(weights)
+    ##removed alpha=0.3, cmap="Blues"
+    c='limegreen'
+    c2='darkgreen'
+    ## make it more transparent for lower value
+    cmap = colors.LinearSegmentedColormap.from_list(
+        'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
+
+    plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, marker="s",edgecolors='none')
+    plt.colorbar()
+    plt.savefig('../mount_outputs/weight_maps/{}_{}.png'.format(slide_id,args.sampling_type), dpi=1000)
+    plt.close()
