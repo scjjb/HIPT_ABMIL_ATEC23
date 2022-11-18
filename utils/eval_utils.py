@@ -8,7 +8,7 @@ import os
 import pandas as pd
 from utils.utils import *
 from utils.core_utils import Accuracy_Logger
-from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights, plot_sampling, plot_sampling_gif, plot_weighting
+from utils.sampling_utils import generate_sample_idxs, generate_features_array, update_sampling_weights, plot_sampling, plot_sampling_gif, plot_weighting, plot_weighting_gif
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import label_binarize
 import random
@@ -285,7 +285,7 @@ def summary_sampling(model, dataset, args):
         ## Inital sample
         sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
         all_sample_idxs=sample_idxs
-
+        sampling_weights=np.full(shape=len(coords),fill_value=0.0001)
         if args.eval_features:
             sampled_data.update_sample(sample_idxs)
             loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
@@ -317,6 +317,9 @@ def summary_sampling(model, dataset, args):
         if args.plot_sampling_gif:
             slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_iteration=False)
         
+        if args.plot_weighting_gif:
+            slide,x_coords,y_coords=plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,0,slide=None,final_iteration=False)
+
         Y_hats.append(Y_hat)
         labels.append(label)
         Y_probs.append(Y_prob)
@@ -329,15 +332,14 @@ def summary_sampling(model, dataset, args):
         ## Subsequent iterations
         sampling_random=args.sampling_random
         neighbors=args.sampling_neighbors
-        sampling_weights=np.full(shape=len(coords),fill_value=0.001)
         for iteration_count in range(args.resampling_iterations-1):
             sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_iteration*sampling_random)
-            attention_scores=attention_scores/max(attention_scores)
+            #attention_scores=attention_scores/max(attention_scores)
                                                                         
-            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=False,
                                         sampling_update=sampling_update,repeats_allowed=False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             all_sample_idxs=all_sample_idxs+sample_idxs
                 
@@ -346,6 +348,9 @@ def summary_sampling(model, dataset, args):
                     plot_sampling_gif(slide_id,coords[all_sample_idxs],args,iteration_count+1,slide,final_iteration=False)
                 else:
                     plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=False)
+
+            if args.plot_weighting_gif:
+                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=False)
 
             if args.eval_features:
                 sampled_data.update_sample(sample_idxs)
@@ -385,14 +390,14 @@ def summary_sampling(model, dataset, args):
             neighbors=neighbors-args.sampling_neighbors_delta
         
         ## Final sampling iteration
-        sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=True,
+        sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=False,
                                 sampling_update=sampling_update,repeats_allowed=False)
         if args.use_all_samples:
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,args.final_sample_size,num_random=0)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.final_sample_size,num_random=0)
             sample_idxs=sample_idxs+all_sample_idxs
             all_sample_idxs=sample_idxs
         else:
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
             all_sample_idxs=all_sample_idxs+sample_idxs
             sample_idxs=sample_idxs+best_sample_idxs
     
@@ -402,6 +407,8 @@ def summary_sampling(model, dataset, args):
             plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
         if args.plot_weighting:
             plot_weighting(slide_id,coords,sampling_weights,args)
+        if args.plot_weighting_gif:
+            plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=True)
 
         if args.eval_features:
             sampled_data.update_sample(sample_idxs)

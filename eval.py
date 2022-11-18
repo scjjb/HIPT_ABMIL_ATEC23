@@ -73,6 +73,7 @@ parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'
 parser.add_argument('--plot_sampling',action='store_true',default=False,help='Save an image showing the samples taken at each at last iteration')
 parser.add_argument('--plot_sampling_gif',action='store_true',default=False,help='Save a gif showing the evolution of the samples taken')
 parser.add_argument('--plot_weighting',action='store_true',default=False,help='Save an image showing each patches sample weighting in the final iteration')
+parser.add_argument('--plot_weighting_gif',action='store_true',default=False,help='Save a gif showing the evolution of sample weighting')
 parser.add_argument('--use_all_samples',action='store_true',default=False,help='Use every previous sample for final iteration')
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final iteration sample')
 parser.add_argument('--retain_best_samples',type=int,default=100,help='number of highest-attention previous samples to retain for final iteration sample')

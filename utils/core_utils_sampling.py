@@ -378,15 +378,15 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
 
         ## Subsequent sampling iterations
         neighbors=args.sampling_neighbors
-        sampling_weights=np.full(shape=len(coords),fill_value=0.001)
+        sampling_weights=np.full(shape=len(coords),fill_value=0.0001)
 
         for iteration_count in range(args.resampling_iterations-2):
             #sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_iteration*sampling_random)
-            attention_scores=attention_scores/max(attention_scores)
+            #attention_scores=attention_scores/max(attention_scores)
 
-            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
 
@@ -398,16 +398,16 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
 
         ## final sample
         num_random=int(samples_per_iteration*sampling_random)
-        attention_scores=attention_scores/max(attention_scores)
-        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
-        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
+        #attention_scores=attention_scores/max(attention_scores)
+        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
             for sample_idx in all_sample_idxs:
                 sampling_weights[sample_idx]=0
-            sampling_weights=sampling_weights/max(sampling_weights)
-            sampling_weights=sampling_weights/sum(sampling_weights)
-            sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
+            #sampling_weights=sampling_weights/max(sampling_weights)
+            #sampling_weights=sampling_weights/sum(sampling_weights)
+            sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights/sum(sampling_weights),size=int(args.final_sample_size),replace=False))
             all_sample_idxs=all_sample_idxs+sample_idxs
             data_sample=data[all_sample_idxs].to(device)
         else:
@@ -560,10 +560,10 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         for iteration_count in range(args.resampling_iterations-2):
             #sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_iteration*sampling_random)
-            attention_scores=attention_scores/max(attention_scores)
+            #attention_scores=attention_scores/max(attention_scores)
             
-            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             
@@ -575,16 +575,16 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         
         ## final sample
         num_random=int(samples_per_iteration*sampling_random)
-        attention_scores=attention_scores/max(attention_scores)
-        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = True, sampling_update=sampling_update, repeats_allowed = False)
-        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights,samples_per_iteration,num_random)
+        #attention_scores=attention_scores/max(attention_scores)
+        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
             for sample_idx in all_sample_idxs:
                 sampling_weights[sample_idx]=0
-            sampling_weights=sampling_weights/max(sampling_weights)
-            sampling_weights=sampling_weights/sum(sampling_weights)
-            sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights,size=int(args.final_sample_size),replace=False))
+            #sampling_weights=sampling_weights/max(sampling_weights)
+            #sampling_weights=sampling_weights/sum(sampling_weights)
+            sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights/sum(sampling_weights),size=int(args.final_sample_size),replace=False))
             all_sample_idxs=all_sample_idxs+sample_idxs
             data_sample=data[all_sample_idxs].to(device)
         else:
