@@ -89,7 +89,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
-def train(config, datasets, cur, class_counts, args):
+def train_tuning(config, datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
