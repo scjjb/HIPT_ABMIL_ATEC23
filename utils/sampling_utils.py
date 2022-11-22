@@ -180,10 +180,11 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
         c2='darkgreen'
 
         ## make it more transparent for lower values
-        cmap = colors.LinearSegmentedColormap.from_list(
-            'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
+        #cmap = colors.LinearSegmentedColormap.from_list(
+        #    'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
     
-        plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2, marker="s",edgecolors='none')
+        #plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2, marker="s",edgecolors='none')
+        plt.scatter(x_coords,y_coords,c=weights,cmap="RdYlGn",s=2,marker="s",edgecolors='none')
         plt.colorbar()
 
         x_samples, y_samples = sample_coords.T

@@ -333,6 +333,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
 
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
+                print("use_h5 is currently set to use h5 to get coords and pt to get features as this keeps tensor format which is faster to process")
 
         def __getitem__(self, idx):
                 slide_id = self.slide_data['slide_id'][idx]
@@ -355,12 +356,31 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                                 return slide_id, label
 
                 else:
-                        full_path = os.path.join(data_dir,'h5_files','{}.h5'.format(slide_id))
-                        with h5py.File(full_path,'r') as hdf5_file:
-                                features = hdf5_file['features'][:]
-                                coords = hdf5_file['coords'][:]
+                        #h5_path = os.path.join(data_dir,'h5_files','{}.h5'.format(slide_id))
+                        ## Next line is not a replacement for line above as the coords change from the patches to the h5 file
+                        #h5_path = os.path.join('../mount_outputs/patches','{}.h5'.format(slide_id))
+                        
+                        
+                        #with h5py.File(h5_path,'r') as hdf5_file:
+                                #features_h5 = hdf5_file['features'][:]
+                                #coords = hdf5_file['coords'][:]
+                                #print(hdf5_file)
+                                #print(hdf5_file.keys())
+                                #assert 1==2,"testing"
+                                #coords = hdf5_file['coords'][:]
+                                #print(coords)
+                                #assert 1==2,"testing"
+                        #coords=torch.load(h5_path)
+                        full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
+                        features = torch.load(full_path)
+                        
+                        coords_path=os.path.join("../mount_outputs/coords","{}.pt".format(slide_id))
+                        coords=torch.load(coords_path)
+                        
+                        #print(coords)
+                        #assert 1==2,"testing"
 
-                        features = torch.from_numpy(features)
+                        #features = torch.from_numpy(features_h5)
                         return features, label, coords, slide_id
 
 
