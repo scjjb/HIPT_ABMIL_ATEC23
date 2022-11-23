@@ -115,8 +115,8 @@ def train_sampling(config,datasets, cur, class_counts, args):
         args.B=config["B"]
         args.no_sampling_epochs=config["no_sample"]
         args.weight_smoothing=config["weight_smoothing"]
-        args.resampling_iterations=config["resampling_iterations"]
-        args.samples_per_iteration=int(960/(config["resampling_iterations"]))
+        #args.resampling_iterations=config["resampling_iterations"]
+        #args.samples_per_iteration=int(960/(config["resampling_iterations"]))
         while args.B>args.samples_per_iteration:
             args.B=int(args.B/2)
             print("args.B reduced to {} due to samples_per_iteration being too small ({})".format(args.B,args.samples_per_iteration))
