@@ -13,6 +13,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
 from sklearn.neighbors import NearestNeighbors
+#import scann
 from ray import tune
 
 class Accuracy_Logger(object):
@@ -216,6 +217,25 @@ def train_sampling(config,datasets, cur, class_counts, args):
         early_stopping = None
     print('Done!')
 
+    
+    train_loader_nbrs = get_split_loader(train_split_h5, training=True, testing = False, weighted = False)
+    ## prepare the nbrs calls
+    args.neighbors_prep=False
+    print("need to move args.neighbors_prep to proper place and make scann and brute options")
+    nbrs_dict={}
+    X_dict={}
+    if args.neighbors_prep:
+        for batch_idx, (data, label,coords,slide_id) in enumerate(train_loader_nbrs):
+            coords=torch.tensor(coords)
+            X = generate_features_array(args, data, coords, slide_id, slide_id_list=[],texture_dataset=[])
+            nbrs_dict[slide_id[0][0]] = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+            X_dict[slide_id[0][0]] = X   
+        #print(slide_id[0][0],len(coords))
+        
+        #nbrs_dict.update({slide_id: [NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)]})
+        #nbrs_list.append(NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X))
+        #print("slide id in nbrs_list maker", slide_id)
+    #print(nbrs_dict)
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
             assert args.samples_per_iteration>=args.B, "B too large for sampling"
@@ -225,7 +245,7 @@ def train_sampling(config,datasets, cur, class_counts, args):
                 stop, val_error, val_loss,val_auc = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
                     early_stopping, writer, loss_fn, args.results_dir)
             else:
-                train_loop_clam_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args.bag_weight, args, writer, loss_fn)
+                train_loop_clam_sampling(epoch, model, train_loader_h5, optimizer, args.n_classes, args.bag_weight, args, writer, loss_fn, nbrs_dict, X_dict)
                 stop, val_error, val_loss,val_auc = validate_clam_sampling(cur, epoch, model, val_loader, args.n_classes,
                     early_stopping, writer, loss_fn, args.results_dir)
         else:
@@ -274,8 +294,7 @@ def train_sampling(config,datasets, cur, class_counts, args):
     return results_dict, test_auc, val_auc, 1-test_error, 1-val_error 
 
 
-def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_weight, args, writer = None, loss_fn = None):
-    #assert 1==2,"train_loop_clam_sampling not yet implemented"
+def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_weight, args, writer = None, loss_fn = None, nbrs_dict = None, X_dict = None):
     num_random=int(args.samples_per_iteration*args.sampling_random)
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.train()
@@ -319,10 +338,15 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         #print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
-        
-        X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
+        #print("slide id in training loop", slide_id)
+        if args.neighbors_prep:
+            X = X_dict[slide_id[0][0]]
+        else:
+            X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
         data, label, coords = data.to(device), label.to(device), coords.to(device)
-        slide_id = slide_ids.iloc[batch_idx]
+        
+        ## this line is actively harmful as slide_ids isnt right
+        #slide_id = slide_ids.iloc[batch_idx]
         
         samples_per_iteration=args.samples_per_iteration
         if total_samples_per_slide>=len(coords):
@@ -370,26 +394,58 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         Y_probs.append(Y_prob)
         all_logits.append(logits)
         
-        ## Find nearest neighbors of each patch to prepare for spatial resampling
-        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        
+        #if args.sampling_type=='spatial':
+        #searcher = scann.scann_ops_pybind.builder(X,args.sampling_neighbors,"dot_product").score_brute_force().build()
+        #else:
+        #searcher = scann.scann_ops_pybind.builder(X,args.sampling_neighbors,"dot_product").score_ah(2).build()
+        ## Find nearest neighbors of each patch to prepare for spatial resampling. 
+        ## Found brute much faster for larger dimensions, ball_tree slightly faster for small dimensions (2D x,y space)
+        #if args.sampling_type=='spatial':
+        #print(neighbors)
+        #print(neighbors[batch_idx])
+        #assert 1==2,"testing"
+        #print(neighbors[batch_idx])
+        
+        #nbrs=nbrs_list[batch_idx]
+        #print(nbrs_dict)
+        
+        if args.neighbors_prep:
+            nbrs=nbrs_dict[slide_id[0][0]]
+        else:
+            nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        
+        #else:
+        #nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='brute').fit(X)
         distances, indices = nbrs.kneighbors(X[sample_idxs])
-
+        #else:
+        #searcher = scann.scann_ops_pybind.builder(X,args.sampling_neighbors,"dot_product").score_ah(2).build()
+        #searcher = scann.scann_ops_pybind.builder(X,args.sampling_neighbors,"dot_product").score_brute_force().build()
+        #indices, distances = searcher.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
         sampling_random=args.sampling_random
 
         ## Subsequent sampling iterations
         neighbors=args.sampling_neighbors
         sampling_weights=np.full(shape=len(coords),fill_value=0.0001)
-
+        #print(slide_id, len(coords))
         for iteration_count in range(args.resampling_iterations-2):
             #sampling_random=max(sampling_random-args.sampling_random_delta,0)
             num_random=int(samples_per_iteration*sampling_random)
             #attention_scores=attention_scores/max(attention_scores)
 
+            #print(len(sampling_weights))
+            #print(len(coords))
+            #print(len(attention_scores))
+            #print(len(indices))
+            #print(indices)
+            
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
+            #if args.sampling_type=='spatial':
             distances, indices = nbrs.kneighbors(X[sample_idxs])
-
+            #else:
+            #indices, distances = searcher.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
             data_sample=data[sample_idxs].to(device)
 
             with torch.no_grad():
@@ -511,7 +567,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
         data, label, coords = data.to(device), label.to(device), coords.to(device)
-        slide_id = slide_ids.iloc[batch_idx]
+        #slide_id = slide_ids.iloc[batch_idx]
 
         samples_per_iteration=args.samples_per_iteration
         if total_samples_per_slide>=len(coords):

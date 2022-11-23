@@ -371,6 +371,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                                 #print(coords)
                                 #assert 1==2,"testing"
                         #coords=torch.load(h5_path)
+                        
                         full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
                         features = torch.load(full_path)
                         

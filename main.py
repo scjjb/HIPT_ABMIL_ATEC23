@@ -28,6 +28,8 @@ from ray import tune
 from ray.air.config import RunConfig
 import ray
 
+import cProfile, pstats
+
 def main():
     # create results directory if necessary
     if not os.path.isdir(args.results_dir):
@@ -177,6 +179,9 @@ parser.add_argument('--exp_code', type=str, help='experiment code for saving res
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
 parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc'])
+parser.add_argument('--profile', action='store_true', default=False, 
+                    help='show profile of longest running code sections')
+parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
 parser.add_argument('--csv_path',type=str,default=None,help='path to dataset_csv file')
 
 ## sampling options
@@ -311,7 +316,16 @@ for key, val in settings.items():
     print("{}:  {}".format(key, val))        
 
 if __name__ == "__main__":
-    results = main()
+    if args.profile:
+        profiler = cProfile.Profile()
+        profiler.enable()
+        results = main()
+        print("max gpu mem usage:",torch.cuda.max_memory_allocated())
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('cumtime')
+        stats.print_stats(args.profile_rows)
+    else:
+        results = main()
     print("finished!")
     print("end script")
 
