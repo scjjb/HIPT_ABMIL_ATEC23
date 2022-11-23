@@ -69,6 +69,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
     if repeated_allowed = False then weights for previous samples are set to 0
     """
     assert sampling_update in ['max','average','none']
+    new_attentions = np.zeros(shape=len(sampling_weights))
     if sampling_update=='average':
         for i in range(len(indices)):
             for index in indices[i][:neighbors]:
@@ -81,7 +82,15 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         for i in range(len(indices)):
             #print("indices:",len(indices))
             for index in indices[i][:neighbors]:
-                sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
+                if new_attentions[index]>0:
+                    new_attentions[index]=max(new_attentions[index],attention_scores[i])
+                else:
+                    new_attentions[index]=attention_scores[i]
+                #sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
+
+        for i in range(len(sampling_weights)):
+            if new_attentions[i]>0:
+                sampling_weights[i]=max(sampling_weights[i],pow(new_attentions[i],power))
 
     if not repeats_allowed:
         for sample_idx in all_sample_idxs:
@@ -108,7 +117,8 @@ def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     plt.scatter(x_values,y_values,s=6)
     plt.savefig('../mount_outputs/sampling_maps/{}.png'.format(slide_id), dpi=300)
     plt.close()
-    
+ 
+
 def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_iteration=False,thumbnail_size=1000):
     if slide==None:
         slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")

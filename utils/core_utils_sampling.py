@@ -13,6 +13,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
 from sklearn.neighbors import NearestNeighbors
+#import scann
 from ray import tune
 
 class Accuracy_Logger(object):
@@ -370,10 +371,17 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         Y_probs.append(Y_prob)
         all_logits.append(logits)
         
-        ## Find nearest neighbors of each patch to prepare for spatial resampling
-        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
-        distances, indices = nbrs.kneighbors(X[sample_idxs])
-
+        ## Find nearest neighbors of each patch to prepare for spatial resampling. 
+        ## Found brute much faster for larger dimensions, ball_tree slightly faster for small dimensions (2D x,y space)
+        #if args.sampling_type=='spatial':
+        #    nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        #else:
+        #    nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='brute').fit(X)
+        #distances, indices = nbrs.kneighbors(X[sample_idxs])
+        #else:
+        searcher = scann.scann_ops_pybind.builder(X,args.sampling_neighbors,"dot_product").score_brute_ah(2).build()
+        #searcher = scann.scann_ops_pybind.builder(X,args.sampling_neighbors,"dot_product").score_brute_force().build()
+        indices, distances = searcher.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
         sampling_random=args.sampling_random
 
         ## Subsequent sampling iterations
@@ -388,8 +396,10 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
-            distances, indices = nbrs.kneighbors(X[sample_idxs])
-
+            #if args.sampling_type=='spatial':
+            #distances, indices = nbrs.kneighbors(X[sample_idxs])
+            #else:
+            indices, distances = searcher.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
             data_sample=data[sample_idxs].to(device)
 
             with torch.no_grad():
