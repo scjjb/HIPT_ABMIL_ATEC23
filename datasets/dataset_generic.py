@@ -374,7 +374,9 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                         full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
                         features = torch.load(full_path)
                         
-                        coords_path=os.path.join("../mount_outputs/coords","{}.pt".format(slide_id))
+                        
+                        #coords_path=os.path.join("../mount_outputs/coords","{}.pt".format(slide_id))
+                        coords_path=os.path.join("../../../MULTIX/DATA/coords","{}.pt".format(slide_id))
                         coords=torch.load(coords_path)
                         
                         #print(coords)
