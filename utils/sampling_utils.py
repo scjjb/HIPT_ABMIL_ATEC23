@@ -79,18 +79,36 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
                 else:
                     sampling_weights[index]=pow(attention_scores[i],power)
     elif sampling_update=='max':
+        ## this chunk is an idea to avoid doing two loops by only looping on the indices, haven't yet managed to improve speed
+        #indices=np.array(indices)
+        #used_indices=np.unique(indices)
+        #for used_index in used_indices:
+        #    rows = np.where(indices==used_index)[0]
+        #    if len(rows)<2:
+        #        new_attentions[used_index]=attention_scores[rows[0]]
+        #    else:
+        #        new_attentions[used_index]=max(attention_scores[rows])
+        
+
+
+        ## this block is currently faster
         for i in range(len(indices)):
-            #print("indices:",len(indices))
             for index in indices[i][:neighbors]:
                 if new_attentions[index]>0:
-                    new_attentions[index]=max(new_attentions[index],attention_scores[i])
+                    if attention_scores[i]>new_attentions[index]:
+                        new_attentions[index]=attention_scores[i]
                 else:
                     new_attentions[index]=attention_scores[i]
                 #sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
-
+        
+        new_attentions=pow(new_attentions,power)
+        #new_attentions=np.array(new_attentions)
+        #for i in range(len(new_attentions)):
+            #new_attentions[i]=pow(new_attentions[i],power)
         for i in range(len(sampling_weights)):
-            if new_attentions[i]>0:
-                sampling_weights[i]=max(sampling_weights[i],pow(new_attentions[i],power))
+            if new_attentions[i]>sampling_weights[i]:
+                sampling_weights[i]=new_attentions[i]
+                #sampling_weights[i]=max(sampling_weights[i],pow(new_attentions[i],power))
 
     if not repeats_allowed:
         for sample_idx in all_sample_idxs:
