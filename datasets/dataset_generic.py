@@ -32,6 +32,7 @@ def save_splits(split_datasets, column_keys, filename, boolean_style=False):
 class Generic_WSI_Classification_Dataset(Dataset):
         def __init__(self,
                 csv_path = 'dataset_csv/ccrcc_clean.csv',
+                coords_path = None,
                 shuffle = False, 
                 seed = 7, 
                 print_info = True,
@@ -58,6 +59,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 self.patient_strat = patient_strat
                 self.train_ids, self.val_ids, self.test_ids  = (None, None, None)
                 self.data_dir = None
+                self.coords_path = coords_path
                 if not label_col:
                         label_col = 'label'
                 self.label_col = label_col
@@ -193,7 +195,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 if len(split) > 0:
                         mask = self.slide_data['slide_id'].isin(split.tolist())
                         df_slice = self.slide_data[mask].reset_index(drop=True)
-                        split = Generic_Split(df_slice, data_dir=self.data_dir, num_classes=self.num_classes)
+                        split = Generic_Split(df_slice, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
                 else:
                         split = None
                 
@@ -209,7 +211,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 if len(split) > 0:
                         mask = self.slide_data['slide_id'].isin(merged_split)
                         df_slice = self.slide_data[mask].reset_index(drop=True)
-                        split = Generic_Split(df_slice, data_dir=self.data_dir, num_classes=self.num_classes)
+                        split = Generic_Split(df_slice, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
                 else:
                         split = None
                 
@@ -222,21 +224,21 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 if from_id:
                         if len(self.train_ids) > 0:
                                 train_data = self.slide_data.loc[self.train_ids].reset_index(drop=True)
-                                train_split = Generic_Split(train_data, data_dir=self.data_dir, num_classes=self.num_classes)
+                                train_split = Generic_Split(train_data, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
 
                         else:
                                 train_split = None
                         
                         if len(self.val_ids) > 0:
                                 val_data = self.slide_data.loc[self.val_ids].reset_index(drop=True)
-                                val_split = Generic_Split(val_data, data_dir=self.data_dir, num_classes=self.num_classes)
+                                val_split = Generic_Split(val_data, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
 
                         else:
                                 val_split = None
                         
                         if len(self.test_ids) > 0:
                                 test_data = self.slide_data.loc[self.test_ids].reset_index(drop=True)
-                                test_split = Generic_Split(test_data, data_dir=self.data_dir, num_classes=self.num_classes)
+                                test_split = Generic_Split(test_data, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
                         
                         else:
                                 test_split = None
@@ -325,15 +327,17 @@ class Generic_WSI_Classification_Dataset(Dataset):
 class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
         def __init__(self,
                 data_dir, 
+                coords_path,
                 **kwargs):
         
                 super(Generic_MIL_Dataset, self).__init__(**kwargs)
                 self.data_dir = data_dir
+                self.coords_path = coords_path
                 self.use_h5 = False
 
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
-                print("use_h5 is currently set to use h5 to get coords and pt to get features as this keeps tensor format which is faster to process")
+                print("use_h5 is currently not set to use h5 but to instead get coords from pt")
 
         def __getitem__(self, idx):
                 slide_id = self.slide_data['slide_id'][idx]
@@ -377,7 +381,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                         
                         
                         #coords_path=os.path.join("../mount_outputs/coords","{}.pt".format(slide_id))
-                        coords_path=os.path.join("../../../MULTIX/DATA/coords","{}.pt".format(slide_id))
+                        coords_path=os.path.join(self.coords_path,"{}.pt".format(slide_id))
                         coords=torch.load(coords_path)
                         
                         #print(coords)
@@ -388,10 +392,11 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
 
 
 class Generic_Split(Generic_MIL_Dataset):
-        def __init__(self, slide_data, data_dir=None, num_classes=2):
+        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2):
                 self.use_h5 = False
                 self.slide_data = slide_data
                 self.data_dir = data_dir
+                self.coords_path = coords_path
                 self.num_classes = num_classes
                 self.slide_cls_ids = [[] for i in range(self.num_classes)]
                 for i in range(self.num_classes):

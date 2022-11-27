@@ -539,6 +539,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
     train_loss /= len(loader)
     train_error /= len(loader)
     
+
     if inst_count > 0:
         train_inst_loss /= inst_count
         print('\n')

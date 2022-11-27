@@ -146,6 +146,8 @@ parser.add_argument('--data_root_dir', type=str, default=None,
                     help='directory containing features folders')
 parser.add_argument('--features_folder', type=str, default=None,
                     help='folder within data_root_dir containing the features - must contain pt_files/h5_files subfolder')
+parser.add_argument('--coords_path', type=str, default=None,
+                    help='path to coords pt files if needed')
 parser.add_argument('--max_epochs', type=int, default=200,
                     help='maximum number of epochs to train (default: 200)')
 parser.add_argument('--min_epochs', type=int, default=20,
@@ -186,7 +188,7 @@ parser.add_argument('--csv_path',type=str,default=None,help='path to dataset_csv
 
 ## sampling options
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')
-parser.add_argument('--sampling_type', type=str, choices=['spatial','textural'],default='spatial',help='type of sampling to use')
+parser.add_argument('--sampling_type', type=str, choices=['spatial','textural','newest'],default='spatial',help='type of sampling to use')
 parser.add_argument('--samples_per_iteration', type=int, default=100, help='number of patches to sample per sampling iteration')
 parser.add_argument('--resampling_iterations', type=int, default=10, help='number of resampling iterations (not including the initial sample)')
 parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per iteration')
@@ -281,6 +283,7 @@ else:
 
 dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
                             data_dir= os.path.join(args.data_root_dir, args.features_folder),
+                            coords_path = args.coords_path,
                             shuffle = False, 
                             seed = args.seed, 
                             print_info = True,

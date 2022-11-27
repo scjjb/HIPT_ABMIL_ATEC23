@@ -68,7 +68,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
     power is a hyperparameter controlling how attention scores are smoothed as typically very close to 0 or 1
     if repeated_allowed = False then weights for previous samples are set to 0
     """
-    assert sampling_update in ['max','average','none']
+    assert sampling_update in ['max','newest','average','none']
     new_attentions = np.zeros(shape=len(sampling_weights))
     if sampling_update=='average':
         for i in range(len(indices)):
@@ -91,6 +91,15 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         
 
 
+        #new_attentions_dict={}
+        #for i in range(len(indices)):
+        #    for index in indices[i][:neighbors]:
+        #        if index in new_attentions_dict:
+        #            if attention_scores[i]>new_attentions_dict[index]:
+         #               new_attentions_dict[index]=attention_scores[i]
+         #       else:
+         #               new_attentions_dict[index]=attention_scores[i]
+
         ## this block is currently faster
         for i in range(len(indices)):
             for index in indices[i][:neighbors]:
@@ -100,15 +109,21 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
                 else:
                     new_attentions[index]=attention_scores[i]
                 #sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
-        
+        #for key in new_attentions_dict:
+        #    new_attentions_dict[key]=pow(new_attentions_dict[key],power)
         new_attentions=pow(new_attentions,power)
+        #new_attentions=1 / (1 + np.exp(-new_attentions))
         #new_attentions=np.array(new_attentions)
         #for i in range(len(new_attentions)):
             #new_attentions[i]=pow(new_attentions[i],power)
         for i in range(len(sampling_weights)):
-            if new_attentions[i]>sampling_weights[i]:
-                sampling_weights[i]=new_attentions[i]
+                if new_attentions[i]>sampling_weights[i]:
+                    sampling_weights[i]=new_attentions[i]
                 #sampling_weights[i]=max(sampling_weights[i],pow(new_attentions[i],power))
+    elif sampling_update=='newest':
+        for i in range(len(indices)):
+            for index in indices[i][:neighbors]:
+                new_attentions[index]=attention_scores[i]
 
     if not repeats_allowed:
         for sample_idx in all_sample_idxs:
