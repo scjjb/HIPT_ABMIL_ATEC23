@@ -73,11 +73,24 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
     if sampling_update=='average':
         for i in range(len(indices)):
             for index in indices[i][:neighbors]:
-                ## the default value is 0.0001
-                if sampling_weights[index]>0.0001:
-                    sampling_weights[index]=(sampling_weights[index]+pow(attention_scores[i],power))/2
+                if new_attentions[index]>0:
+                    ## not a perfect method of averaging but want it to run quickly
+                    new_attentions[index]=(new_attentions[index]+attention_scores[i])/2
                 else:
-                    sampling_weights[index]=pow(attention_scores[i],power)
+                    new_attentions[index]=attention_scores[i]
+        new_attentions=pow(new_attentions,power)
+
+        for i in range(len(sampling_weights)):
+            if new_attentions[i]>0:
+                sampling_weights[i]=new_attentions[i]
+        ##old version
+        #for i in range(len(indices)):
+        #    for index in indices[i][:neighbors]:
+                ## the default value is 0.0001
+        #        if sampling_weights[index]>0.0001:
+        #            sampling_weights[index]=(sampling_weights[index]+pow(attention_scores[i],power))/2
+        #        else:
+        #            sampling_weights[index]=pow(attention_scores[i],power)
     elif sampling_update=='max':
         ## this chunk is an idea to avoid doing two loops by only looping on the indices, haven't yet managed to improve speed
         #indices=np.array(indices)
