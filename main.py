@@ -57,15 +57,21 @@ def main():
             "drop_out": tune.uniform(0.0,0.99),
             "lr": tune.loguniform(5e-5,1e-3),
             "B": tune.choice([4,6,16,32,64]),
-            "no_sample": tune.choice([0,10,20,30]),
+            "no_sample": tune.choice([0,10,20,30,40]),
             "weight_smoothing": tune.loguniform(0.001,0.5),
-            #"resampling_iterations": tune.choice([2,4,6,8,12,16,24])}
+            "resampling_iterations": tune.choice([2,4,6,8,12,16,24]),
+            "sampling_neighbors": tune.choice([4,8,16,32,64,128,256]),
+            "sampling_random": tune.uniform(0,0.95)
+            
+            
             }
+            
+            
 
         scheduler = tune.schedulers.ASHAScheduler(
             metric="loss",
             mode="min",
-            grace_period=40,
+            grace_period=min(40,args.max_epochs),
             reduction_factor=3,
             max_t=args.max_epochs)
 
