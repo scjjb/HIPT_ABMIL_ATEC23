@@ -119,6 +119,7 @@ def train_sampling(config,datasets, cur, class_counts, args):
         args.samples_per_iteration=int(960/(config["resampling_iterations"]))
         args.sampling_neighbors=config["sampling_neighbors"]
         args.sampling_random=config["sampling_random"]
+        args.sampling_random_delta=config["sampling_random_delta"]
 
         while args.B>args.samples_per_iteration:
             args.B=int(args.B/2)
@@ -453,7 +454,11 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         sampling_weights=np.full(shape=len(coords),fill_value=0.0001)
         #print(slide_id, len(coords))
         for iteration_count in range(args.resampling_iterations-2):
-            #sampling_random=max(sampling_random-args.sampling_random_delta,0)
+            if sampling_random>args.sampling_random_delta:
+                sampling_random=sampling_random-args.sampling_random_delta
+            else:
+                sampling_random=0
+            
             num_random=int(samples_per_iteration*sampling_random)
             #attention_scores=attention_scores/max(attention_scores)
 
@@ -653,7 +658,11 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         sampling_weights=np.full(shape=len(coords),fill_value=0.001)
 
         for iteration_count in range(args.resampling_iterations-2):
-            #sampling_random=max(sampling_random-args.sampling_random_delta,0)
+            if sampling_random>args.sampling_random_delta:
+                sampling_random=sampling_random-args.sampling_random_delta
+            else:
+                sampling_random=0
+            
             num_random=int(samples_per_iteration*sampling_random)
             #attention_scores=attention_scores/max(attention_scores)
             

@@ -333,7 +333,10 @@ def summary_sampling(model, dataset, args):
         sampling_random=args.sampling_random
         neighbors=args.sampling_neighbors
         for iteration_count in range(args.resampling_iterations-1):
-            sampling_random=max(sampling_random-args.sampling_random_delta,0)
+            if sampling_random>args.sampling_random_delta:
+                sampling_random=sampling_random-args.sampling_random_delta
+            else:
+                sampling_random=0
             num_random=int(samples_per_iteration*sampling_random)
             #attention_scores=attention_scores/max(attention_scores)
                                                                         

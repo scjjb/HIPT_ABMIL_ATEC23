@@ -50,7 +50,7 @@ def main():
         if args.hardware=='DGX':
             hardware={"cpu":10,"gpu":0.08333}
         else:
-            hardware={"cpu":1,"gpu":0.33333}
+            hardware={"cpu":2,"gpu":0.5}
 
         search_space = {
             "reg": tune.loguniform(1e-8,1e-2),
@@ -61,7 +61,8 @@ def main():
             "weight_smoothing": tune.loguniform(0.001,0.5),
             "resampling_iterations": tune.choice([2,4,6,8,12,16,24]),
             "sampling_neighbors": tune.choice([4,8,16,32,64,128,256]),
-            "sampling_random": tune.uniform(0,0.95)
+            "sampling_random": tune.uniform(0,0.95),
+            "sampling_random_delta": tune.loguniform(0.0001,0.5)
             
             
             }
@@ -198,6 +199,7 @@ parser.add_argument('--sampling_type', type=str, choices=['spatial','textural','
 parser.add_argument('--samples_per_iteration', type=int, default=100, help='number of patches to sample per sampling iteration')
 parser.add_argument('--resampling_iterations', type=int, default=10, help='number of resampling iterations (not including the initial sample)')
 parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per iteration')
+parser.add_argument('--sampling_random_delta',type=float, default=0.02, help='reduction in sampling_random per iteration')
 parser.add_argument('--sampling_neighbors', type=int, default=20, help='number of nearest neighbors to consider when resampling')
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
 parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
