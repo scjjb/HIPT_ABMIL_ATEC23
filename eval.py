@@ -128,6 +128,7 @@ else:
     raise NotImplementedError
 
 dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
+                                coords_path=None,
                                 data_dir= os.path.join(args.data_root_dir, args.features_folder),
                                 shuffle = False,
                                 print_info = True,
