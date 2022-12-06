@@ -668,7 +668,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             loss.backward()
             # step
             optimizer.step()
-
+            continue
 
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
         #data, label, coords = data.to(device), label.to(device), coords.to(device)
