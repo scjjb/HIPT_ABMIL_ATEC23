@@ -56,13 +56,13 @@ def main():
             "reg": tune.loguniform(1e-8,1e-2),
             "drop_out": tune.uniform(0.0,0.99),
             "lr": tune.loguniform(5e-5,1e-3),
-            "B": tune.choice([4,6,16,32,64]),
+            #"B": tune.choice([4,6,16,32,64]),
             "no_sample": tune.choice([0,10,20,30,40]),
-            "weight_smoothing": tune.loguniform(0.001,0.5),
-            "resampling_iterations": tune.choice([2,4,6,8,12,16,24]),
-            "sampling_neighbors": tune.choice([4,8,16,32,64,128,256]),
-            "sampling_random": tune.uniform(0,0.95),
-            "sampling_random_delta": tune.loguniform(0.0001,0.5)
+            #"weight_smoothing": tune.loguniform(0.001,0.5),
+            #"resampling_iterations": tune.choice([2,4,6,8,12,16,24]),
+            #"sampling_neighbors": tune.choice([4,8,16,32,64,128,256]),
+            #"sampling_random": tune.uniform(0,0.95),
+            #"sampling_random_delta": tune.loguniform(0.0001,0.5)
             
             
             }
@@ -207,6 +207,8 @@ parser.add_argument('--sampling_average',action='store_true',default=False,help=
 parser.add_argument('--weight_smoothing',type=float,default=0.15,help='Power applied to attention scores to generate sampling weights')
 parser.add_argument('--use_all_samples',action='store_true', default=False, help='Use all previous samples in the final sample step')
 parser.add_argument('--no_sampling_epochs',type=int,default=20,help='number of epochs to complete full slide processing before beginning sampling')
+parser.add_argument('--fully_random',action='store_true', default=False, help='Take entirely random samples (no active sampling)')
+
 
 ## tuning options
 parser.add_argument('--tuning', action='store_true', default=False, help='run hyperparameter tuning')

@@ -131,12 +131,11 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         ## this needs indices as a dict
         #indices=dict(indices)
         
-        ## New fastest code
+        ## New fastest code - it has quartered the runtime of update_sampling_weights
         #####################################
         indices_dict={}
         for i,row in enumerate(indices):
             indices_dict[i]=row 
-
         for key,values in indices_dict.items():
             for index in values:
                 if new_attentions[index]>0:
