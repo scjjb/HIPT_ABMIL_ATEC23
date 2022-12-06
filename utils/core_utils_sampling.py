@@ -345,15 +345,13 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
     total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
-        
         if args.fully_random:
             data, label = data.to(device), label.to(device)
             if total_samples_per_slide>=len(coords):
                 print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
                 data_sample=data
             else:
-                samples=args.samples_per_iteration+args.final_sample_size
-                sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples,replace=False))
+                sample_idxs=list(np.random.choice(range(0,len(coords)), size=total_samples_per_slide,replace=False))
                 all_sample_idxs=sample_idxs
                 data_sample=data[sample_idxs]#.to(device)
             logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample, label=label, instance_eval=True)
@@ -647,6 +645,44 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         #print("Processing WSI number ", batch_idx)
         coords=torch.tensor(coords)
         
+        
+        if args.fully_random:
+            data, label = data.to(device), label.to(device)
+            if total_samples_per_slide>=len(coords):
+                print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
+                data_sample=data
+            else:
+                sample_idxs=list(np.random.choice(range(0,len(coords)), size=total_samples_per_slide,replace=False))
+                all_sample_idxs=sample_idxs
+                data_sample=data[sample_idxs]#.to(device)
+            logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample, label=label, instance_eval=True)
+            acc_logger.log(Y_hat, label)
+            loss = loss_fn(logits, label)
+            loss_value = loss.item()
+            train_loss += loss_value
+
+            instance_loss = instance_dict['instance_loss']
+            inst_count+=1
+            instance_loss_value = instance_loss.item()
+            train_inst_loss += instance_loss_value
+            
+            inst_preds = instance_dict['inst_preds']
+            inst_labels = instance_dict['inst_labels']
+            inst_logger.log_batch(inst_preds, inst_labels)
+
+            error = calculate_error(Y_hat, label)
+            train_error += error
+            total_loss = bag_weight * loss + (1-bag_weight) * instance_loss
+
+            # backward pass
+            total_loss.backward()
+            # step
+            optimizer.step()
+            optimizer.zero_grad()
+            continue
+
+
+
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
         #data, label, coords = data.to(device), label.to(device), coords.to(device)
         data, label = data.to(device), label.to(device)
