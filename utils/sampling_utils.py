@@ -6,6 +6,7 @@ import glob
 from PIL import Image
 from matplotlib import colors
 from multiprocessing.pool import Pool
+import random
 
 def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_iteration,num_random,grid=False,coords=None):
     if grid:
@@ -42,7 +43,7 @@ def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_p
             previous_samples=previous_samples+nonrandom_idxs
             available_idxs=available_idxs-set(previous_samples)
         if num_random>0:
-            random_idxs=list(np.random.choice(list(available_idxs), size=num_random,replace=False))
+            random_idxs=random.sample(list(available_idxs),num_random)
         sample_idxs=random_idxs+nonrandom_idxs
     return sample_idxs
 

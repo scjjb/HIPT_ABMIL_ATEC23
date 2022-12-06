@@ -397,7 +397,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
         with torch.no_grad():
             logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample, label=label, instance_eval=True)
         
-        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
 
         Y_hats.append(Y_hat)
         labels.append(label)
@@ -493,7 +493,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
 
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample)
-            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
 
         ## final sample
         num_random=int(samples_per_iteration*sampling_random)
@@ -641,7 +641,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         with torch.no_grad():
             logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample)
         
-        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
 
         Y_hats.append(Y_hat)
         labels.append(label)
@@ -650,7 +650,16 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
                                                  
         ## Find nearest neighbors of each patch to prepare for spatial resampling
         nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+        #distances, indices = nbrs.kneighbors(X)
         distances, indices = nbrs.kneighbors(X[sample_idxs])
+        
+        #indices_dict={}
+        #for i,row in enumerate(indices):
+        #    indices_dict[i]=row
+        
+       # index_list=list(indices_dict.items())
+       # indices=dict(index_list[id] for id in sample_idxs)
+
         sampling_random=args.sampling_random
 
         ## Subsequent sampling iterations
@@ -669,12 +678,14 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
+            #index_list=list(indices_dict.items())
+            #indices=dict(index_list[id] for id in sample_idxs)
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             data_sample=data[sample_idxs]#.to(device)
             
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample)
-            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
         
         ## final sample
         num_random=int(samples_per_iteration*sampling_random)
