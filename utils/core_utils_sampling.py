@@ -434,6 +434,8 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             indices, distances = nbrs.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
         elif args.neighbors_function=='ball_tree':
             distances, indices = nbrs.kneighbors(X[sample_idxs])
+        
+
         #else:
         #nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='brute').fit(X)
         
@@ -482,7 +484,6 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
                 indices, distances = nbrs.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
             elif args.neighbors_function=='ball_tree':
                 distances, indices = nbrs.kneighbors(X[sample_idxs])
-
             #distances, indices = nbrs.kneighbors(X[sample_idxs])
             #else:
             #indices, distances = searcher.search_batched(X[sample_idxs], final_num_neighbors=args.sampling_neighbors)
@@ -650,7 +651,6 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         ## Find nearest neighbors of each patch to prepare for spatial resampling
         nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
         distances, indices = nbrs.kneighbors(X[sample_idxs])
-
         sampling_random=args.sampling_random
 
         ## Subsequent sampling iterations
@@ -670,7 +670,6 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
-            
             data_sample=data[sample_idxs]#.to(device)
             
             with torch.no_grad():
