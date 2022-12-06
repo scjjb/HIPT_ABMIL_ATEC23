@@ -656,31 +656,18 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
                 all_sample_idxs=sample_idxs
                 data_sample=data[sample_idxs]#.to(device)
             logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample, label=label, instance_eval=True)
+
             acc_logger.log(Y_hat, label)
             loss = loss_fn(logits, label)
             loss_value = loss.item()
             train_loss += loss_value
-
-            instance_loss = instance_dict['instance_loss']
-            inst_count+=1
-            instance_loss_value = instance_loss.item()
-            train_inst_loss += instance_loss_value
-            
-            inst_preds = instance_dict['inst_preds']
-            inst_labels = instance_dict['inst_labels']
-            inst_logger.log_batch(inst_preds, inst_labels)
-
             error = calculate_error(Y_hat, label)
             train_error += error
-            total_loss = bag_weight * loss + (1-bag_weight) * instance_loss
 
             # backward pass
-            total_loss.backward()
+            loss.backward()
             # step
             optimizer.step()
-            optimizer.zero_grad()
-            continue
-
 
 
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
