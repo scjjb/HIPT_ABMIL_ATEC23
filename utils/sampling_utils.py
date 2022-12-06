@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import glob
 from PIL import Image
 from matplotlib import colors
+from multiprocessing.pool import Pool
 
 def generate_sample_idxs(idxs_length,previous_samples,sampling_weights,samples_per_iteration,num_random,grid=False,coords=None):
     if grid:
@@ -114,13 +115,41 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
          #               new_attentions_dict[index]=attention_scores[i]
 
         ## this block is currently faster
-        for i in range(len(indices)):
-            for index in indices[i][:neighbors]:
+       
+        
+        ## WORKING CODE but no longer fastest 
+        ########################################################
+        #for i in range(len(indices)):
+        #    for index in indices[i][:neighbors]:
+        #        if new_attentions[index]>0:
+        #            if attention_scores[i]>new_attentions[index]:
+        #                new_attentions[index]=attention_scores[i]
+        #        else:
+        #            new_attentions[index]=attention_scores[i]
+        #######################################################
+        
+        ## this needs indices as a dict
+        #indices=dict(indices)
+        
+        ## New fastest code
+        #####################################
+        indices_dict={}
+        for i,row in enumerate(indices):
+            indices_dict[i]=row 
+
+        for key,values in indices_dict.items():
+            for index in values:
                 if new_attentions[index]>0:
                     if attention_scores[i]>new_attentions[index]:
-                        new_attentions[index]=attention_scores[i]
-                else:
-                    new_attentions[index]=attention_scores[i]
+                        new_attentions[index]=attention_scores[key]
+                    else:
+                        new_attentions[index]=attention_scores[key]
+        ########################################
+
+        #with Pool() as pool:
+         #   for result in pool.map(task, range(10)):
+        #        new_attention[result[index]]=
+        #
                 #sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
         #for key in new_attentions_dict:
         #    new_attentions_dict[key]=pow(new_attentions_dict[key],power)
