@@ -54,14 +54,14 @@ def main():
 
         search_space = {
             "reg": tune.loguniform(1e-8,1e-2),
-            "drop_out": tune.uniform(0.0,0.99),
-            "lr": tune.loguniform(5e-5,1e-3),
+            "drop_out": tune.uniform(0.5,0.99),
+            "lr": tune.loguniform(5e-5,5e-3),
             "B": tune.choice([4,6,16,32,64]),
             "no_sample": tune.choice([0,10,20,30,40]),
-            "weight_smoothing": tune.loguniform(0.001,0.5),
-            "resampling_iterations": tune.choice([2,4,6,8,12,16,24]),
-            "sampling_neighbors": tune.choice([4,8,16,32,64,128,256]),
-            "sampling_random": tune.uniform(0,0.95),
+            "weight_smoothing": tune.loguniform(0.0001,0.5),
+            "resampling_iterations": tune.choice([2,4,6,8,10,12,16]),
+            "sampling_neighbors": tune.choice([4,8,16,32,64]),
+            "sampling_random": tune.uniform(0.25,0.95),
             "sampling_random_delta": tune.loguniform(0.0001,0.5)
             
             
