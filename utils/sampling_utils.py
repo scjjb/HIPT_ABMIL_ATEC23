@@ -72,6 +72,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
     """
     assert sampling_update in ['max','newest','average','none']
     new_attentions = np.zeros(shape=len(sampling_weights))
+    #new_attentions=dict(enumerate(new_attentions)) ## may be better to skip np zeros and use a loop
     if sampling_update=='average':
         for i in range(len(indices)):
             for index in indices[i][:neighbors]:
@@ -153,6 +154,13 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
                 #sampling_weights[index]=max(sampling_weights[index],pow(attention_scores[i],power))
         #for key in new_attentions_dict:
         #    new_attentions_dict[key]=pow(new_attentions_dict[key],power)
+        #print(new_attentions)
+        #print(" ")
+        #print(list(new_attentions.values()))
+        #assert 1==2,"break"
+        
+        ## if new_attentions is a dict need the next line
+        #new_attentions=np.array(list(new_attentions.values()),dtype=float)
         new_attentions=pow(new_attentions,power)
         #new_attentions=1 / (1 + np.exp(-new_attentions))
         #new_attentions=np.array(new_attentions)

@@ -15,6 +15,7 @@ from sklearn.metrics import auc as calc_auc
 from sklearn.neighbors import NearestNeighbors
 #import scann
 from ray import tune
+import random 
 
 class Accuracy_Logger(object):
     """Accuracy logger"""
@@ -452,7 +453,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             all_sample_idxs=all_sample_idxs+sample_idxs
             data_sample=data[all_sample_idxs]#.to(device)
         else:
-            assert 1==2,"Have only implemented use_all_samples so far"
+            raise NotImplementedError("Only implemented with --use_all_samples at the minute")
 
         logits, Y_prob, Y_hat, _, instance_dict = model(data_sample,label=label,instance_eval=True)
 
@@ -524,10 +525,10 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         sampling_update='max'
 
     ## Collecting Y_hats and labels to view performance across sampling iterations
-    Y_hats=[]
-    labels=[]
-    Y_probs=[]
-    all_logits=[]
+    #Y_hats=[]
+    #labels=[]
+    #Y_probs=[]
+    #all_logits=[]
     slide_ids = loader.dataset.slide_data['slide_id']
 
     slide_id_list=[]
@@ -549,8 +550,9 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
         coords=torch.tensor(coords)
-        data, label = data.to(device), label.to(device)
-        
+        #data, label = data.to(device), label.to(device)
+        #data = data.to(device)
+        label = label.to(device)
         if args.fully_random or total_samples_per_slide>=len(coords):
             if total_samples_per_slide>=len(coords):
                 print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
@@ -559,6 +561,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
                 sample_idxs=list(np.random.choice(range(0,len(coords)), size=total_samples_per_slide,replace=False))
                 all_sample_idxs=sample_idxs
                 data_sample=data[sample_idxs]#.to(device)
+            #data_sample, label = data_sample.to(device), label.to(device)
             logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
             acc_logger.log(Y_hat, label)
@@ -578,19 +581,19 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
 
         ## First sampling iteration (fully random sampling)
-        sample_idxs=list(np.random.choice(range(0,len(coords)), size=args.samples_per_iteration,replace=False))
-
+        #sample_idxs=list(np.random.choice(range(0,len(coords)), size=args.samples_per_iteration,replace=False))
+        sample_idxs=list(random.sample(range(len(coords)),args.samples_per_iteration))
         all_sample_idxs=sample_idxs
-        data_sample=data[sample_idxs]#.to(device)
+        data_sample=data[sample_idxs].to(device)
         with torch.no_grad():
             logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample)
         
         attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
 
-        Y_hats.append(Y_hat)
-        labels.append(label)
-        Y_probs.append(Y_prob)
-        all_logits.append(logits)
+        #Y_hats.append(Y_hat)
+        #labels.append(label)
+        #Y_probs.append(Y_prob)
+        #all_logits.append(logits)
                                                  
         ## Find nearest neighbors of each patch to prepare for spatial resampling
         nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
@@ -613,7 +616,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
-            data_sample=data[sample_idxs]#.to(device)
+            data_sample=data[sample_idxs].to(device)
             
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample)
@@ -629,9 +632,9 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
                 sampling_weights[sample_idx]=0
             sample_idxs=list(np.random.choice(range(0,len(coords)),p=sampling_weights/sum(sampling_weights),size=int(args.final_sample_size),replace=False))
             all_sample_idxs=all_sample_idxs+sample_idxs
-            data_sample=data[all_sample_idxs]#.to(device)
+            data_sample=data[all_sample_idxs].to(device)
         else:
-            assert 1==2,"Have only implemented use_all_samples so far"
+            raise NotImplementedError("Only implemented with --use_all_samples at the minute")
         
         logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
