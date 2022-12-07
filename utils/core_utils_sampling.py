@@ -340,16 +340,17 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
     total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, (data, label,coords,slide_id) in enumerate(loader):
-        if args.fully_random:
-            data, label = data.to(device), label.to(device)
-            if total_samples_per_slide>=len(coords):
+        data, label = data.to(device), label.to(device)
+        
+        if args.fully_random or total_samples_per_slide>=len(coords):
+            if total_samples_per_slide>=len(coords):    
                 print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
                 data_sample=data
             else:
                 sample_idxs=list(np.random.choice(range(0,len(coords)), size=total_samples_per_slide,replace=False))
                 all_sample_idxs=sample_idxs
                 data_sample=data[sample_idxs]#.to(device)
-            logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample, label=label, instance_eval=True)
+            logits, Y_prob, Y_hat, _, instance_dict = model(data_sample, label=label, instance_eval=True)
             acc_logger.log(Y_hat, label)
             loss = loss_fn(logits, label)
             loss_value = loss.item()
@@ -381,42 +382,9 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             X = X_dict[slide_id[0][0]]
         else:
             X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
-        data, label = data.to(device), label.to(device)
-
-        samples_per_iteration=args.samples_per_iteration
-        if total_samples_per_slide>=len(coords):
-            print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
-            data_sample=data
-            logits, Y_prob, Y_hat, _, instance_dict = model(data_sample, label=label, instance_eval=True)
-            
-            acc_logger.log(Y_hat, label)
-            loss = loss_fn(logits, label)
-            loss_value = loss.item()
-            train_loss += loss_value
-            
-            instance_loss = instance_dict['instance_loss']
-            inst_count+=1
-            instance_loss_value = instance_loss.item()
-            train_inst_loss += instance_loss_value
-            
-            inst_preds = instance_dict['inst_preds']
-            inst_labels = instance_dict['inst_labels']
-            inst_logger.log_batch(inst_preds, inst_labels)
-
-            error = calculate_error(Y_hat, label)
-            train_error += error
-
-            total_loss = bag_weight * loss + (1-bag_weight) * instance_loss
-            
-            # backward pass
-            total_loss.backward()
-            # step
-            optimizer.step()
-            optimizer.zero_grad()
-            continue
 
         ## First sampling iteration (fully random sampling)
-        sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_iteration,replace=False))
+        sample_idxs=list(np.random.choice(range(0,len(coords)), size=args.samples_per_iteration,replace=False))
         all_sample_idxs=sample_idxs
         data_sample=data[sample_idxs]#.to(device)
         with torch.no_grad():
@@ -455,10 +423,10 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             else:
                 sampling_random=0
             
-            num_random=int(samples_per_iteration*sampling_random)
+            num_random=int(args.samples_per_iteration*sampling_random)
             
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             
             if args.neighbors_function=='scann_ah':
@@ -473,9 +441,9 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
 
         ## final sample
-        num_random=int(samples_per_iteration*sampling_random)
+        num_random=int(args.samples_per_iteration*sampling_random)
         sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
-        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
+        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
             for sample_idx in all_sample_idxs:
@@ -607,11 +575,10 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             continue
 
 
-        samples_per_iteration=args.samples_per_iteration
         X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
 
         ## First sampling iteration (fully random sampling)
-        sample_idxs=list(np.random.choice(range(0,len(coords)), size=samples_per_iteration,replace=False))
+        sample_idxs=list(np.random.choice(range(0,len(coords)), size=args.samples_per_iteration,replace=False))
 
         all_sample_idxs=sample_idxs
         data_sample=data[sample_idxs]#.to(device)
@@ -640,10 +607,10 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             else:
                 sampling_random=0
             
-            num_random=int(samples_per_iteration*sampling_random)
+            num_random=int(args.samples_per_iteration*sampling_random)
             
             sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
+            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             data_sample=data[sample_idxs]#.to(device)
@@ -653,9 +620,9 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
         
         ## final sample
-        num_random=int(samples_per_iteration*sampling_random)
+        num_random=int(args.samples_per_iteration*sampling_random)
         sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
-        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
+        sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
             for sample_idx in all_sample_idxs:
