@@ -560,8 +560,8 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             else:
                 sample_idxs=list(np.random.choice(range(0,len(coords)), size=total_samples_per_slide,replace=False))
                 all_sample_idxs=sample_idxs
-                data_sample=data[sample_idxs].to(device)
-            #data_sample, label = data_sample.to(device), label.to(device)
+                data_sample=data[sample_idxs]#.to(device)
+            data_sample = data_sample.to(device)
             logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
             acc_logger.log(Y_hat, label)
