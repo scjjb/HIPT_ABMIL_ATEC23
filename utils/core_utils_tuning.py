@@ -95,18 +95,12 @@ def train_tuning(config, datasets, cur, class_counts, args):
     """
     print('\nTraining Fold {}!'.format(cur))
 
-    #args.sampling_random=config["sampling_random"]
-    #args.sampling_neighbors=config["sampling_neighbors"]
-    #args.sampling_random_delta=config["sampling_random_delta"]
-    #args.samples_per_epoch=config["samples_per_epoch"]
-    #args.weight_strength=config["weight_strength"]
-    #args.sampling_epochs=int((1024/args.samples_per_epoch))
+    assert not args.sampling, "Error in code - should be in core_utils_sampling when sampling even if also tuning"
+    if not args.no_inst_cluster:
+        args.B=config["B"]
     args.lr=config["lr"]
     args.reg=config["reg"]
     args.drop_out=config["drop_out"]
-    args.B=config["B"]
-    #args.no_sampling_epochs=config["no_sampling_epochs"]
-
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):
         os.mkdir(writer_dir)
