@@ -85,7 +85,6 @@ def main():
                     "drop_out": tune.uniform(0.5,0.99),
                     "lr": tune.loguniform(5e-5,5e-3)
                 }
-                                                                                                                        }
             else:
                 search_space = {
                     "reg": tune.loguniform(1e-8,1e-2),
