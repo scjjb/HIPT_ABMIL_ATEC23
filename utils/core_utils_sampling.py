@@ -426,7 +426,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
             
             num_random=int(args.samples_per_iteration*sampling_random)
             
-            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=args.weight_smoothing, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             
@@ -443,7 +443,7 @@ def train_loop_clam_sampling(epoch, model, loader, optimizer, n_classes, bag_wei
 
         ## final sample
         num_random=int(args.samples_per_iteration*sampling_random)
-        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=args.weight_smoothing, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
         sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:
@@ -612,7 +612,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
             
             num_random=int(args.samples_per_iteration*sampling_random)
             
-            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+            sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=args.weight_smoothing, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
             all_sample_idxs=all_sample_idxs+sample_idxs
             distances, indices = nbrs.kneighbors(X[sample_idxs])
@@ -624,7 +624,7 @@ def train_loop_sampling(epoch, model, loader, optimizer, n_classes, args, writer
         
         ## final sample
         num_random=int(args.samples_per_iteration*sampling_random)
-        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=0.15, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
+        sampling_weights = update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs, indices, neighbors, power=args.weight_smoothing, normalise = False, sampling_update=sampling_update, repeats_allowed = False)
         sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.samples_per_iteration,num_random)
         all_sample_idxs=all_sample_idxs+sample_idxs
         if args.use_all_samples:

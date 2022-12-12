@@ -48,7 +48,7 @@ def main():
         ray.init(num_gpus=1)
             
         if args.hardware=='DGX':
-            hardware={"cpu":10,"gpu":0.1}
+            hardware={"cpu":10,"gpu":0.125}
         else:
             hardware={"cpu":2,"gpu":0.5}
 
