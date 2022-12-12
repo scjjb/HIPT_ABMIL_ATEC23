@@ -19,6 +19,8 @@ from datasets.dataset_h5 import Whole_Slide_Bag_FP
 from models.resnet_custom import resnet50_baseline
 from datasets.dataset_generic import Generic_MIL_Dataset
 
+from ray import tune
+
 
 def initiate_model(args, ckpt_path):
     print('Init Model')    
@@ -73,7 +75,7 @@ def extract_features(args,loader,feature_extraction_model,use_cpu):
     return all_features
 
 
-def eval(dataset, args, ckpt_path):
+def eval(config, dataset, args, ckpt_path):
     model = initiate_model(args, ckpt_path)
     print("model on device:",next(model.parameters()).device)
     print('Init Loaders')
@@ -89,7 +91,9 @@ def eval(dataset, args, ckpt_path):
     else:
         loader = get_simple_loader(dataset)
         patient_results, test_error, auc, df, _ = summary(model, loader, args)
-        
+    
+    if args.tuning:
+        tune.report(accuracy=1-test_error, auc=auc)    
     print('test_error: ', test_error)
     print('auc: ', auc)
     return model, patient_results, test_error, auc, df

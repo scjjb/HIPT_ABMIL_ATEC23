@@ -83,14 +83,12 @@ def extract_features(args,loader,feature_extraction_model,use_cpu):
 
 
 def eval(config, full_dataset, args, ckpt_path):
-    
-    args.sampling_random=config["sampling_random"]
+    args.weight_smoothing=config["weight_smoothing"]
+    args.resampling_iterations=config["resampling_iterations"]
+    args.samples_per_iteration=int(960/(config["resampling_iterations"]))
     args.sampling_neighbors=config["sampling_neighbors"]
+    args.sampling_random=config["sampling_random"]
     args.sampling_random_delta=config["sampling_random_delta"]
-    args.samples_per_epoch=config["samples_per_epoch"]
-    args.weight_strength=config["weight_strength"]
-    args.sampling_epochs=int((1024/args.samples_per_epoch))
-    
     datasets_id = {'train': 0, 'val': 1, 'test': 2, 'all': -1}
     
 
@@ -164,7 +162,7 @@ def eval(config, full_dataset, args, ckpt_path):
     tune.report(auc=np.mean(aucs), accuracy=1-np.mean(test_errors))
     
 
-    output_row=[args.sampling_random,args.sampling_neighbors,args.sampling_random_delta,args.samples_per_epoch,args.weight_strength,args.sampling_epochs,np.mean(aucs),1-np.mean(test_errors)]
+    output_row=[args.sampling_random,args.sampling_neighbors,args.sampling_random_delta,args.samples_per_iteration,args.weight_smoothing,args.resampling_iterations,np.mean(aucs),1-np.mean(test_errors)]
     #print(output_row)
     output_dataframe=pd.read_csv("/CLAM/"+args.tuning_output_file)
     output_dataframe.loc[len(output_dataframe)] = output_row

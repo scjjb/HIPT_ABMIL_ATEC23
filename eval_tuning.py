@@ -19,7 +19,7 @@ from torch.profiler import profile, record_function, ProfilerActivity
 
 from datasets.dataset_h5 import Dataset_All_Bags
 
-from streamlit import legacy_caching as caching
+#from streamlit import legacy_caching as caching
 
 from functools import partial
 from ray import tune
@@ -30,6 +30,7 @@ import ray
 # Training settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
 parser.add_argument('--csv_path', type=str, default=None)
+parser.add_argument('--coords_path', type=str, default=None,help='path to coords pt files if needed')
 parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
 parser.add_argument('--slide_ext', type=str, default= '.svs')
 parser.add_argument('--data_h5_dir', type=str, default=None)
@@ -68,23 +69,23 @@ parser.add_argument('--profile', action='store_true', default=False,
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster evaluation')
 parser.add_argument('--sampling_type', type=str, choices=['spatial','textural'],default='spatial',help='type of sampling to use')
-parser.add_argument('--samples_per_epoch', type=int, default=100, help='number of patches to sample per sampling epoch')
-parser.add_argument('--sampling_epochs', type=int, default=10, help='number of sampling epochs')
-parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per epoch')
-parser.add_argument('--sampling_random_delta',type=float, default=0.02, help='reduction in sampling_random per epoch')
+parser.add_argument('--samples_per_iteration', type=int, default=100, help='number of patches to sample per sampling iteration')
+parser.add_argument('--resampling_iterations', type=int, default=10, help='number of resampling iterations')
+parser.add_argument('--sampling_random', type=float, default=0.2, help='proportion of samples which are completely random per iteration')
+parser.add_argument('--sampling_random_delta',type=float, default=0.02, help='reduction in sampling_random per iteration')
 parser.add_argument('--sampling_neighbors', type=int, default=20, help='number of nearest neighbors to consider when resampling')
-parser.add_argument('--sampling_neighbors_delta', type=int, default=0, help='reduction in number of nearest neighbors per epoch')
+parser.add_argument('--sampling_neighbors_delta', type=int, default=0, help='reduction in number of nearest neighbors per resampling iteration')
 parser.add_argument('--texture_model',type=str, choices=['resnet50','levit_128s'], default='resnet50',help='model to use for feature extraction in textural sampling')
 parser.add_argument('--plot_sampling',action='store_true',default=False,help='Save an image showing the samples taken at each at last epoch')
 parser.add_argument('--plot_sampling_gif',action='store_true',default=False,help='Save a gif showing the evolution of the samples taken')
 parser.add_argument('--use_all_samples',action='store_true',default=False,help='Use every previous sample for final epoch')
 parser.add_argument('--final_sample_size',type=int,default=100,help='number of patches for final sample')
-parser.add_argument('--retain_best_samples',type=int,default=100,help='number of highest-attention previous samples to retain for final sample')
+parser.add_argument('--retain_best_samples',type=int,default=100,help='number of highest-attention previous samples to retain for final sample when not using all samples')
 parser.add_argument('--initial_grid_sample',action='store_true',default=False,help='Take the initial sample to be spaced out in a grid')
 parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
 parser.add_argument('--label_dict',type=str,help='Convert labels to numbers')
 parser.add_argument('--cpu_only',action='store_true',default=False,help='Use CPU only')
-parser.add_argument('--weight_strength',type=float,default=0.15,help='power given to attention scores to smooth for weighting')
+parser.add_argument('--weight_smoothing',type=float,default=0.15,help='power given to attention scores to smooth for weighting')
 parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
 args = parser.parse_args()
 
@@ -154,6 +155,7 @@ elif args.task == 'custom_1vsall_256_20x':
     args.n_classes=2
     dataset =  Generic_MIL_Dataset(csv_path = '/CLAM/dataset_csv/set_all.csv',
                             data_dir= os.path.join(args.data_root_dir, 'ovarian_dataset_features_256_patches_20x'),
+                            coords_path = args.coords_path,
                             shuffle = False,
                             print_info = True,
                             label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1},
@@ -215,18 +217,18 @@ def count_patches(dataset,args,ckpt):
 def main():
     ray.init(num_gpus=1)
     config = {
-        "sampling_random": tune.sample_from(lambda _: 0.2*np.random.randint(0, 5)),
-        "sampling_neighbors": tune.sample_from(lambda _: 20*np.random.randint(1,5)),
-        "sampling_random_delta": tune.choice([0.00,0.01,0.03,0.05]),
-        "samples_per_epoch":  tune.choice([16, 32, 64, 128, 256, 512]),
-        "weight_strength": tune.choice([0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1])
-            }
+        "weight_smoothing":  tune.loguniform(0.0001,0.5),
+        "resampling_iterations": tune.choice([2,4,6,8,10,12,16]),
+        "sampling_neighbors": tune.choice([4,8,16,32,64]),
+        "sampling_random": tune.uniform(0.25,0.95),
+        "sampling_random_delta": tune.loguniform(0.0001,0.5)
+        }
     all_results = []
     all_auc = []
     all_acc = []
     #args.sampling_random =config["sampling_random"]
     
-    output_file=pd.DataFrame([["sampling_random","sampling_neighbors","sampling_random_delta","samples_per_epoch","weight_strength","sampling_epochs","auc","accuracy"]])
+    output_file=pd.DataFrame([["sampling_random","sampling_neighbors","sampling_random_delta","samples_per_iteration","weight_smoothing","resampling_iterations","auc","accuracy"]])
     output_file.to_csv(args.tuning_output_file,index=False)
 
     scheduler = ASHAScheduler(
@@ -295,8 +297,8 @@ if __name__ == "__main__":
     #reporter = CLIReporter(
     #    metric_columns=["auc", "accuracy"])
     
-    if args.eval_features:
-        caching.clear_cache()
+    #if args.eval_features:
+        #caching.clear_cache()
     if args.profile:
         profiler = cProfile.Profile()
         profiler.enable()

@@ -17,9 +17,15 @@ from utils.eval_utils import *
 import cProfile, pstats
 from datasets.dataset_h5 import Dataset_All_Bags
 
+from functools import partial
+from ray import tune
+from ray.air.config import RunConfig
+import ray
+
 # Evaluation settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
 parser.add_argument('--csv_path', type=str, default=None, help='path to dataset_csv file')
+parser.add_argument('--coords_path', type=str, default=None,help='path to coords pt files if needed')
 parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
 parser.add_argument('--slide_ext', type=str, default= '.svs')
 parser.add_argument('--data_h5_dir', type=str, default=None)
@@ -79,7 +85,14 @@ parser.add_argument('--final_sample_size',type=int,default=100,help='number of p
 parser.add_argument('--retain_best_samples',type=int,default=100,help='number of highest-attention previous samples to retain for final iteration sample')
 parser.add_argument('--initial_grid_sample',action='store_true',default=False,help='Take the initial sample to be spaced out in a grid')
 parser.add_argument('--sampling_average',action='store_true',default=False,help='Take the sampling weights as averages rather than maxima to leverage more learned information')
+parser.add_argument('--weight_smoothing',type=float,default=0.15,help='Power applied to attention scores to generate sampling weights')
+parser.add_argument('--fully_random',action='store_true', default=False, help='Take entirely random samples (no active sampling)')
 
+## tuning options
+parser.add_argument('--tuning', action='store_true', default=False, help='run hyperparameter tuning')
+parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
+parser.add_argument('--num_tuning_experiments',type=int,default=100,help="number of tuning experiments")
+parser.add_argument('--hardware',type=str, choices=['DGX','PC'], default='DGX',help='sets amount of CPU and GPU to use per experiment')
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -128,7 +141,7 @@ else:
     raise NotImplementedError
 
 dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
-                                coords_path=None,
+                                coords_path=args.coords_path,
                                 data_dir= os.path.join(args.data_root_dir, args.features_folder),
                                 shuffle = False,
                                 print_info = True,
@@ -167,6 +180,39 @@ def main():
     all_results = []
     all_auc = []
     all_acc = []
+    
+    if args.tuning:
+        ray.init(num_gpus=1)
+                             
+        if args.hardware=='DGX':
+            hardware={"cpu":10,"gpu":0.1}
+        else:
+            hardware={"cpu":2,"gpu":0.5}
+    
+        search_space = {
+            "weight_smoothing":  tune.loguniform(0.0001,0.5),
+            "resampling_iterations": tune.choice([2,4,6,8,10,12,16]),
+            "sampling_neighbors": tune.choice([4,8,16,32,64]),
+            "sampling_random": tune.uniform(0.25,0.95),
+            "sampling_random_delta": tune.loguniform(0.0001,0.5)
+        }
+
+        scheduler = tune.schedulers.ASHAScheduler(
+            metric="auc",
+            mode="max",
+            grace_period=1,
+            reduction_factor=3,
+            max_t=1)
+
+        reporter = tune.CLIReporter(
+            metric_columns=["auc", "training_iteration"],
+            max_report_frequency=5,
+            max_progress_rows=20,
+            metric="auc",
+            mode="max",
+            sort_by_metric=True)
+
+
     for ckpt_idx in range(len(ckpt_paths)):
         if args.eval_features:
             split_dataset=Dataset_All_Bags(args.csv_path)
@@ -178,21 +224,36 @@ def main():
                 datasets = dataset.return_splits(from_id=False, csv_path=csv_path)	
                 split_dataset = datasets[datasets_id[args.split]]
             
-        model, patient_results, test_error, auc, df  = eval(split_dataset, args, ckpt_paths[ckpt_idx])
-        all_results.append(all_results)
-        all_auc.append(auc)
-        print("all auc", all_auc)
-        all_acc.append(1-test_error)
-        print("all acc", all_acc)
-        if not args.eval_features:
-            df.to_csv(os.path.join(args.save_dir, 'fold_{}.csv'.format(folds[ckpt_idx])), index=False)	
+        if args.tuning:
+            #if args.sampling:
+            tuner = tune.Tuner(tune.with_resources(partial(eval,dataset=split_dataset,args=args,ckpt_path=ckpt_paths[ckpt_idx]),hardware),param_space=search_space, run_config=RunConfig(name="test_run", progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
+        
+            results = tuner.fit()
+            results_df=results.get_dataframe()
+            results_df.to_csv(args.tuning_output_file,index=False)
+            
+            best_trial = results.get_best_result("auc", "max","all")
+            print("best trial:", best_trial)
+            print("Best trial config: {}".format(best_trial.config))
+            print("Best trial final auc: {}".format(best_trial.metrics["auc"]))
+            print("Best trial final acuracy: {}".format(best_trial.metrics["accuracy"]))
 
-    final_df = pd.DataFrame({'folds': folds, 'test_auc': all_auc, 'test_acc': all_acc})	
-    if len(folds) != args.k:	
-        save_name = 'summary_partial_{}_{}.csv'.format(folds[0], folds[-1])	
-    else:	
-        save_name = 'summary.csv'	
-    final_df.to_csv(os.path.join(args.save_dir, save_name))
+        else:
+            model, patient_results, test_error, auc, df  = eval(None,split_dataset, args, ckpt_paths[ckpt_idx])
+            #all_results.append(all_results)
+            all_auc.append(auc)
+            print("all auc", all_auc)
+            all_acc.append(1-test_error)
+            print("all acc", all_acc)
+            if not args.eval_features:
+                df.to_csv(os.path.join(args.save_dir, 'fold_{}.csv'.format(folds[ckpt_idx])), index=False)	
+    if not args.tuning:
+        final_df = pd.DataFrame({'folds': folds, 'test_auc': all_auc, 'test_acc': all_acc})	
+        if len(folds) != args.k:	
+            save_name = 'summary_partial_{}_{}.csv'.format(folds[0], folds[-1])	
+        else:	
+            save_name = 'summary.csv'	
+        final_df.to_csv(os.path.join(args.save_dir, save_name))
     
 if __name__ == "__main__":
     if args.profile:
