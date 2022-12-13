@@ -4,6 +4,8 @@
 
 **TABAS-MIL** - Textural Attention-Based Active Sampling in Multiple Instance Learning
 
+<img src="482772_spatial.gif" width="500px" align="centre" />
+
 
 
 ## Reference
