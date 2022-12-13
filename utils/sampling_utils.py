@@ -4,7 +4,7 @@ import openslide
 import matplotlib.pyplot as plt
 import glob
 from PIL import Image
-from matplotlib import colors
+#from matplotlib import colors
 from multiprocessing.pool import Pool
 import random
 
@@ -133,7 +133,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         ## this needs indices as a dict
         #indices=dict(indices)
         
-        ## New fastest code - it has quartered the runtime of update_sampling_weights
+        ## New fastest code - it has quartered the runtime of update_sampling_weights but certainly isnt working with eval.py (seems to be working with main.py - check this)
         #####################################
         indices_dict={}
         for i,row in enumerate(indices):
@@ -143,7 +143,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
                 if new_attentions[index]>0:
                     if attention_scores[i]>new_attentions[index]:
                         new_attentions[index]=attention_scores[key]
-                    else:
+                else:
                         new_attentions[index]=attention_scores[key]
         ########################################
 
@@ -198,6 +198,7 @@ def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     x_values=x_values.cpu()
     y_values=y_values.cpu()
     plt.scatter(x_values,y_values,s=6)
+    plt.axis('off')
     plt.savefig('../mount_outputs/sampling_maps/{}.png'.format(slide_id), dpi=300)
     plt.close()
  
@@ -215,6 +216,7 @@ def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_ite
     x_values=x_values.cpu()
     y_values=y_values.cpu()
     plt.scatter(x_values,y_values,s=6)
+    plt.axis('off')
     plt.savefig('../mount_outputs/sampling_maps/{}_iter{}.png'.format(slide_id,iteration), dpi=300)
     plt.close()
     
@@ -246,11 +248,13 @@ def plot_weighting(slide_id,coords,weights,args,thumbnail_size=3000):
     c2='darkgreen'
     
     ## make it more transparent for lower values
-    cmap = colors.LinearSegmentedColormap.from_list(
-        'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
-
-    plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, marker="s",edgecolors='none')
+    #cmap = colors.LinearSegmentedColormap.from_list(
+    #    'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
+    cmap='coolwarm'
+    
+    plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, alpha=0.4, marker="s",edgecolors='none')
     plt.colorbar()
+    plt.axis('off')
     plt.savefig('../mount_outputs/weight_maps/{}_{}.png'.format(slide_id,args.sampling_type), dpi=1000)
     plt.close()
 
@@ -275,9 +279,11 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
         ## make it more transparent for lower values
         #cmap = colors.LinearSegmentedColormap.from_list(
         #    'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
-    
+        #cmap='RdYlGn'
+        cmap='jet'
+        cmap = plt.get_cmap(cmap)
         #plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2, marker="s",edgecolors='none')
-        plt.scatter(x_coords,y_coords,c=weights,cmap="RdYlGn",s=2,marker="s",edgecolors='none')
+        plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2,alpha=0.6,marker="s",edgecolors='none')
         plt.colorbar()
 
         x_samples, y_samples = sample_coords.T
@@ -286,7 +292,7 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
         x_samples=x_samples.cpu()
         y_samples=y_samples.cpu()
         plt.scatter(x_samples,y_samples,c='black',s=2,alpha=0.5,marker="s", edgecolors='none')
-
+        plt.axis('off')
         plt.savefig('../mount_outputs/weight_maps/gifs/{}_{}_iter{}.png'.format(slide_id,args.sampling_type,iteration), dpi=500)
         plt.close()
     

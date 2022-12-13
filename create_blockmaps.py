@@ -28,6 +28,7 @@ parser.add_argument('--save_exp_code', type=str, default=None,
 					help='experiment code')
 parser.add_argument('--overlap', type=float, default=None)
 parser.add_argument('--config_file', type=str, default="heatmap_config_template.yaml")
+parser.add_argument('--cpu_only',action='store_true',default=False,help='Use CPU only')
 args = parser.parse_args()
 
 def infer_single_slide(model, features, label, reverse_label_dict, k=1):

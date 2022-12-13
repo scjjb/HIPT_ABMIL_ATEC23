@@ -41,10 +41,11 @@ def initiate_model(args, ckpt_path):
 
     print_network(model)
     
-    if args.cpu_only:
-        ckpt = torch.load(ckpt_path,map_location=torch.device('cpu'))
-    else:
-         ckpt = torch.load(ckpt_path)
+    print("args.cpu_only disabled as it caused problems making heatmaps/blockmaps")
+    #if args.cpu_only:
+    #    ckpt = torch.load(ckpt_path,map_location=torch.device('cpu'))
+    #else:
+    ckpt = torch.load(ckpt_path)
     ckpt_clean = {}
     for key in ckpt.keys():
         if 'instance_loss_fn' in key:
@@ -165,8 +166,8 @@ def summary_sampling(model, dataset, args):
     model.eval()
     num_slides=len(dataset)
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if args.cpu_only:
-        device=torch.device("cpu")
+    #if args.cpu_only:
+    #    device=torch.device("cpu")
     test_loss = 0.
     test_error = 0.
 
@@ -306,7 +307,7 @@ def summary_sampling(model, dataset, args):
 
         with torch.no_grad():
             logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
-        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
         attn_scores_list=raw_attention[0].cpu().tolist()
         
         if not args.use_all_samples:
@@ -344,8 +345,11 @@ def summary_sampling(model, dataset, args):
             num_random=int(samples_per_iteration*sampling_random)
             #attention_scores=attention_scores/max(attention_scores)
                                                                         
-            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=False,
+            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
                                         sampling_update=sampling_update,repeats_allowed=False)
+            
+            if args.plot_weighting_gif:
+                                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=False)
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
             distances, indices = nbrs.kneighbors(X[sample_idxs])
             all_sample_idxs=all_sample_idxs+sample_idxs
@@ -355,9 +359,6 @@ def summary_sampling(model, dataset, args):
                     plot_sampling_gif(slide_id,coords[all_sample_idxs],args,iteration_count+1,slide,final_iteration=False)
                 else:
                     plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=False)
-
-            if args.plot_weighting_gif:
-                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=False)
 
             if args.eval_features:
                 sampled_data.update_sample(sample_idxs)
@@ -397,7 +398,7 @@ def summary_sampling(model, dataset, args):
             neighbors=neighbors-args.sampling_neighbors_delta
         
         ## Final sampling iteration
-        sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=0.15,normalise=False,
+        sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
                                 sampling_update=sampling_update,repeats_allowed=False)
         if args.use_all_samples:
             sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.final_sample_size,num_random=0)
