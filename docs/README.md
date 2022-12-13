@@ -1,8 +1,10 @@
 # SABAS-MIL & TABAS-MIL <img src="CISTIB logo.png" align="right" width="200"/>
+<img src="482772_spatial.gif" width="500px" align="centre" />
 
 **SABAS-MIL** - Spatial Attention-Based Active Sampling in Multiple Instance Learning 
 
 **TABAS-MIL** - Textural Attention-Based Active Sampling in Multiple Instance Learning
+
 
 
 
