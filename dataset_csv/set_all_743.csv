@@ -89,9 +89,6 @@ case_id,slide_id,label
 28,482613,clear_cell
 28,482614,clear_cell
 28,482615,clear_cell
-156,482901,clear_cell
-156,482902,clear_cell
-156,482903,clear_cell
 40,482828,high_grade
 40,482829,high_grade
 40,482830,high_grade
@@ -106,8 +103,6 @@ case_id,slide_id,label
 42,482840,mucinous
 42,482841,mucinous
 42,483122,mucinous
-154,483361,clear_cell
-154,483364,clear_cell
 27,482620,clear_cell
 27,482621,clear_cell
 27,482622,clear_cell
@@ -589,8 +584,6 @@ case_id,slide_id,label
 245,491909,high_grade
 245,491910,high_grade
 245,492256,high_grade
-152,,clear_cell
-152,482888,low_grade
 165,480221,high_grade
 165,480226,high_grade
 165,482959,high_grade

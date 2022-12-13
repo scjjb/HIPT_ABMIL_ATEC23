@@ -217,7 +217,7 @@ def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_ite
     y_values=y_values.cpu()
     plt.scatter(x_values,y_values,s=6)
     plt.axis('off')
-    plt.savefig('../mount_outputs/sampling_maps/{}_iter{}.png'.format(slide_id,iteration), dpi=300)
+    plt.savefig('../mount_outputs/sampling_maps/{}_iter{}.png'.format(slide_id,str(iteration).zfill(3)), dpi=300)
     plt.close()
     
     if final_iteration:
@@ -251,7 +251,7 @@ def plot_weighting(slide_id,coords,weights,args,thumbnail_size=3000):
     #cmap = colors.LinearSegmentedColormap.from_list(
     #    'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
     cmap='coolwarm'
-    
+
     plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, alpha=0.4, marker="s",edgecolors='none')
     plt.colorbar()
     plt.axis('off')
@@ -283,7 +283,7 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
         cmap='jet'
         cmap = plt.get_cmap(cmap)
         #plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2, marker="s",edgecolors='none')
-        plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2,alpha=0.6,marker="s",edgecolors='none')
+        plt.scatter(x_coords,y_coords,c=weights,cmap=cmap,s=2,alpha=0.6,marker="s",edgecolors='none',vmin=0,vmax=0.8)
         plt.colorbar()
 
         x_samples, y_samples = sample_coords.T
@@ -293,7 +293,7 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
         y_samples=y_samples.cpu()
         plt.scatter(x_samples,y_samples,c='black',s=2,alpha=0.5,marker="s", edgecolors='none')
         plt.axis('off')
-        plt.savefig('../mount_outputs/weight_maps/gifs/{}_{}_iter{}.png'.format(slide_id,args.sampling_type,iteration), dpi=500)
+        plt.savefig('../mount_outputs/weight_maps/gifs/{}_{}_iter{}.png'.format(slide_id,args.sampling_type,str(iteration).zfill(3)), dpi=350,bbox_inches='tight')
         plt.close()
     
     if final_iteration:
