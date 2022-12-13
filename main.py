@@ -97,7 +97,7 @@ def main():
         scheduler = tune.schedulers.ASHAScheduler(
             metric="loss",
             mode="min",
-            grace_period=min(40,args.max_epochs),
+            grace_period=min(50,args.max_epochs),
             reduction_factor=3,
             max_t=args.max_epochs)
 
@@ -130,7 +130,7 @@ def main():
             class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
 
         if args.tuning:
-            stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=40)
+            stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=50)
             if args.sampling:
                 tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
             else:
