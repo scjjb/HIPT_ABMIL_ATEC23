@@ -229,7 +229,8 @@ def summary_sampling(model, dataset, args):
     total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, contents in enumerate(iterator):
-        print('\nprogress: {}/{}'.format(batch_idx, num_slides))
+        if not args.tuning:
+            print('\nprogress: {}/{}'.format(batch_idx, num_slides))
 
         samples_per_iteration=args.samples_per_iteration
 
@@ -260,7 +261,7 @@ def summary_sampling(model, dataset, args):
             slide_id=slide_id[0][0]
         
         ## Generate initial sample_idsx
-        print("available patches:", len(coords))
+        #print("available patches:", len(coords))
         if total_samples_per_slide>=len(coords):
             print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
             if args.eval_features:
@@ -447,7 +448,7 @@ def summary_sampling(model, dataset, args):
             error = calculate_error(Y_hat, label)
 
         test_error += error
-        print("len all sample idxs",len(all_sample_idxs))
+        #print("len all sample idxs",len(all_sample_idxs))
 
     all_errors=[]
     if args.eval_features:
@@ -474,15 +475,14 @@ def summary_sampling(model, dataset, args):
     if len(np.unique(all_labels)) == 2:
         auc_score = roc_auc_score(all_labels, all_probs[:, 1])
     else:
-        print("AUC scoring not implemented for multi-class classification yet")
-        #assert  1==2,"AUC scoring by iteration not implemented for multi-class classification yet"
+        raise NotImplementedError("AUC scoring not implemented for multiclass classification in evaluation")
 
     results_dict = {'Y': all_labels, 'Y_hat': all_preds}
     for c in range(args.n_classes):
         results_dict.update({'p_{}'.format(c): all_probs[:,c]})
 
     df = pd.DataFrame(results_dict)
-    print("all errors: ",all_errors)
+    #print("all errors: ",all_errors)
     #print("all aucs: ",all_aucs)
     return patient_results, test_error, auc_score, df, acc_logger
 
