@@ -1,4 +1,4 @@
-# DRAS-MIL <img src="CISTIB logo.png" align="right" width="200"/>
+# DRAS-MIL <img src="CISTIB logo.png" align="right" width="240"/>
 **D**iscriminative **R**egion **A**ctive **S**ampling in **M**ultiple **I**nstance **L**earning
 
 <img src="482772_spatial.gif" width="500px" align="centre" />
