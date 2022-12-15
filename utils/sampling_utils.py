@@ -293,7 +293,7 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
         y_samples=y_samples.cpu()
         plt.scatter(x_samples,y_samples,c='gray',s=1.6685,alpha=0.8,marker="s", edgecolors='none')
         plt.axis('off')
-        plt.savefig('../mount_outputs/weight_maps/gifs/{}_{}_iter{}.png'.format(slide_id,args.sampling_type,str(iteration).zfill(3)), dpi=500,bbox_inches='tight')
+        plt.savefig('../mount_outputs/weight_maps/gifs/{}_{}_iter{}.png'.format(slide_id,args.sampling_type,str(iteration).zfill(3)), dpi=300,bbox_inches='tight')
         plt.close()
     
     if final_iteration:

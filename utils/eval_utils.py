@@ -81,6 +81,15 @@ def eval(config, dataset, args, ckpt_path):
     print("model on device:",next(model.parameters()).device)
     print('Init Loaders')
     
+    if args.tuning:
+        args.weight_smoothing=config["weight_smoothing"]
+        args.resampling_iterations=config["resampling_iterations"]
+        args.samples_per_iteration=int(960/(config["resampling_iterations"]))
+        args.sampling_neighbors=config["sampling_neighbors"]
+        args.sampling_random=config["sampling_random"]
+        args.sampling_random_delta=config["sampling_random_delta"]
+    
+    
     if args.eval_features:
         patient_results, test_error, auc, df, _ = summary_sampling(model,dataset,args)
 
