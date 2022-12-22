@@ -56,7 +56,7 @@ def main():
             if args.no_inst_cluster:
                 search_space = {
                     "reg": tune.loguniform(1e-8,1e-2),
-                    "drop_out": tune.uniform(0.5,0.99),
+                    "drop_out": tune.uniform(0.00,0.99),
                     "lr": tune.loguniform(5e-5,5e-3),
                     "no_sample": tune.choice([0,10,20,30,40]),
                     "weight_smoothing": tune.loguniform(0.0001,0.5),
