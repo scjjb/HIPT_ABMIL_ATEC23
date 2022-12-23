@@ -18,6 +18,7 @@ class TrialPlateauStopper(Stopper):
         metric: str,
         std: float = 0.01,
         num_results: int = 4,
+        mean_patience: int = 10,
         grace_period: int = 4,
         metric_threshold: Optional[float] = None,
         mode: Optional[str] = None,
@@ -29,10 +30,12 @@ class TrialPlateauStopper(Stopper):
 
         self._std = std
         self._mean = float("inf")
+        self._mean_counter = 0
+        self._mean_patience = mean_patience
         self._num_results = num_results
         self._grace_period = grace_period
         self._metric_threshold = metric_threshold
-
+        
         if self._metric_threshold:
             if mode not in ["min", "max"]:
                 raise ValueError(
@@ -76,9 +79,17 @@ class TrialPlateauStopper(Stopper):
             current_mean = float("inf")
 
         # If stdev is lower than threshold or mean is increasing, stop early.
-        if (current_std < self._std) or (current_mean>self._mean):
+        if (current_std < self._std):
             return True
+        ## Check if mean is increased and if so check if its been increased for at least mean_patience number of epochs
+        elif (current_mean>self._mean):
+            self._mean_counter+=1
+            if self._mean_counter>=self._mean_patience:
+                return True
+            else:
+                return False
         else:
+            self._mean_counter=0
             self._mean = current_mean
             return False
 
