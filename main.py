@@ -130,7 +130,7 @@ def main():
             class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
 
         if args.tuning:
-            stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=50)
+            stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=4,grace_period=50)
             if args.sampling:
                 tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
             else:
@@ -139,7 +139,7 @@ def main():
             results_df=results.get_dataframe()
             results_df.to_csv(args.tuning_output_file,index=False)
 
-            best_trial = results.get_best_result("loss", "min","all")
+            best_trial = results.get_best_result("loss", "min","last-10-avg")
             print("best trial:", best_trial)
             print("Best trial config: {}".format(best_trial.config))
             print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
