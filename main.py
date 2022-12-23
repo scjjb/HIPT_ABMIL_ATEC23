@@ -27,6 +27,7 @@ from functools import partial
 from ray import tune
 from ray.air.config import RunConfig
 import ray
+from utils.tuning_utils import TrialPlateauStopper
 
 import cProfile, pstats
 
@@ -130,7 +131,7 @@ def main():
             class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
 
         if args.tuning:
-            stopper=tune.stopper.TrialPlateauStopper(metric="loss",mode="min",num_results=4,grace_period=50)
+            stopper=TrialPlateauStopper(metric="loss",mode="min",num_results=10,grace_period=50)
             if args.sampling:
                 tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
             else:
