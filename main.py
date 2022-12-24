@@ -131,7 +131,7 @@ def main():
             class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
 
         if args.tuning:
-            stopper=TrialPlateauStopper(metric="loss",mode="min",num_results=10,grace_period=50)
+            stopper=TrialPlateauStopper(metric="loss",mode="min",num_results=10,grace_period=20)
             if args.sampling:
                 tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
             else:

@@ -29,8 +29,7 @@ class TrialPlateauStopper(Stopper):
         self._mode = mode
 
         self._std = std
-        self._mean = float("inf")
-        self._mean_counter = 0
+        #self._mean = float("inf")
         self._mean_patience = mean_patience
         self._num_results = num_results
         self._grace_period = grace_period
@@ -45,6 +44,8 @@ class TrialPlateauStopper(Stopper):
                 )
 
         self._iter = defaultdict(lambda: 0)
+        self._mean_counter = defaultdict(lambda: 0)
+        self._mean = defaultdict(lambda: 0)
         self._trial_results = defaultdict(lambda: deque(maxlen=self._num_results))
 
     def __call__(self, trial_id: str, result: Dict):
@@ -60,6 +61,11 @@ class TrialPlateauStopper(Stopper):
         if len(self._trial_results[trial_id]) < self._num_results:
             return False
 
+        # If mean not yet defined
+        if trial_id not in self._mean.keys:
+            self._mean[trial_id]=float("inf")
+            self._mean_counter[trial_id]=0
+
         # If metric threshold value not reached, do not stop yet
         if self._metric_threshold is not None:
             if self._mode == "min" and metric_result > self._metric_threshold:
@@ -73,24 +79,26 @@ class TrialPlateauStopper(Stopper):
         except Exception:
             current_std = float("inf")
 
-        try:
-            current_mean = np.mean(self._trial_results[trial_id])
-        except Exception:
-            current_mean = float("inf")
+        #try:
+        current_mean = np.median(self._trial_results[trial_id])
+        print("current mean: ",current_mean)
+        #except Exception:
+        #    current_mean = float("inf")
 
         # If stdev is lower than threshold or mean is increasing, stop early.
         if (current_std < self._std):
             return True
         ## Check if mean is increased and if so check if its been increased for at least mean_patience number of epochs
-        elif (current_mean>self._mean):
-            self._mean_counter+=1
-            if self._mean_counter>=self._mean_patience:
+        #self._iter[trial_id] += 1
+        elif (current_mean>self._mean[trial_id]):
+            self._mean_counter[trial_id] += 1
+            if self._mean_counter[trial_id]>=self._mean_patience:
                 return True
             else:
                 return False
         else:
-            self._mean_counter=0
-            self._mean = current_mean
+            self._mean_counter[trial_id]=0
+            self._mean[trial_id] = current_mean
             return False
 
     def stop_all(self):
