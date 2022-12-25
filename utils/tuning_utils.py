@@ -62,7 +62,7 @@ class TrialPlateauStopper(Stopper):
             return False
 
         # If mean not yet defined
-        if trial_id not in self._mean.keys:
+        if trial_id not in self._mean.keys():
             self._mean[trial_id]=float("inf")
             self._mean_counter[trial_id]=0
 
@@ -80,7 +80,7 @@ class TrialPlateauStopper(Stopper):
             current_std = float("inf")
 
         #try:
-        current_mean = np.median(self._trial_results[trial_id])
+        current_mean = np.mean(self._trial_results[trial_id])
         print("current mean: ",current_mean)
         #except Exception:
         #    current_mean = float("inf")
