@@ -18,7 +18,7 @@ class TrialPlateauStopper(Stopper):
         metric: str,
         std: float = 0.01,
         num_results: int = 4,
-        mean_patience: int = 10,
+        mean_patience: int = 20,
         grace_period: int = 4,
         metric_threshold: Optional[float] = None,
         mode: Optional[str] = None,

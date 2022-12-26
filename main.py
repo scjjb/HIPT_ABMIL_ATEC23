@@ -56,9 +56,9 @@ def main():
         if args.sampling:
             if args.no_inst_cluster:
                 search_space = {
-                    "reg": tune.loguniform(1e-8,1e-2),
+                    "reg": tune.loguniform(1e-10,1e-2),
                     "drop_out": tune.uniform(0.00,0.99),
-                    "lr": tune.loguniform(5e-5,5e-3),
+                    "lr": tune.loguniform(1e-5,1e-2),
                     "no_sample": tune.choice([0,10,20,30,40]),
                     "weight_smoothing": tune.loguniform(0.0001,0.5),
                     "resampling_iterations": tune.choice([2,4,6,8,10,12,16]),
@@ -68,9 +68,9 @@ def main():
                     }
             else:
                 search_space = {
-                    "reg": tune.loguniform(1e-8,1e-2),
+                    "reg": tune.loguniform(1e-10,1e-2),
                     "drop_out": tune.uniform(0.00,0.99),
-                    "lr": tune.loguniform(5e-5,5e-3),
+                    "lr": tune.loguniform(1e-5,1e-2),
                     "B": tune.choice([4,6,16,32,64]),
                     "no_sample": tune.choice([0,10,20,30,40]),
                     "weight_smoothing": tune.loguniform(0.0001,0.5),
@@ -82,15 +82,15 @@ def main():
         else:
             if args.no_inst_cluster:
                 search_space = {
-                    "reg": tune.loguniform(1e-8,1e-2),
+                    "reg": tune.loguniform(1e-10,1e-2),
                     "drop_out": tune.uniform(0.00,0.99),
-                    "lr": tune.loguniform(5e-5,5e-3)
+                    "lr": tune.loguniform(1e-5,1e-2)
                 }
             else:
                 search_space = {
-                    "reg": tune.loguniform(1e-8,1e-2),
+                    "reg": tune.loguniform(1e-10,1e-2),
                     "drop_out": tune.uniform(0.00,0.99),
-                    "lr": tune.loguniform(5e-5,5e-3),
+                    "lr": tune.loguniform(1e-5,1e-2),
                     "B": tune.choice([4,6,16,32,64]),
                 }
             
@@ -131,7 +131,7 @@ def main():
             class_counts=[class_counts_train[i]+class_counts_val[i] for i in range(len(class_counts_train))]
 
         if args.tuning:
-            stopper=TrialPlateauStopper(metric="loss",mode="min",num_results=10,grace_period=20)
+            stopper=TrialPlateauStopper(metric="loss",mode="min",num_results=20,grace_period=20)
             if args.sampling:
                 tuner = tune.Tuner(tune.with_resources(partial(train_sampling,datasets=datasets,cur=i,class_counts=class_counts,args=args),hardware),param_space=search_space, run_config=RunConfig(name="test_run",stop=stopper, progress_reporter=reporter),tune_config=tune.TuneConfig(scheduler=scheduler,num_samples=args.num_tuning_experiments))
             else:
