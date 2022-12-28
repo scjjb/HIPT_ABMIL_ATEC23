@@ -360,6 +360,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                                 return slide_id, label
 
                 else:
+                    if self.coords_path is not None:
                         #h5_path = os.path.join(data_dir,'h5_files','{}.h5'.format(slide_id))
                         ## Next line is not a replacement for line above as the coords change from the patches to the h5 file
                         #h5_path = os.path.join('../mount_outputs/patches','{}.h5'.format(slide_id))
@@ -388,7 +389,13 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                         #assert 1==2,"testing"
 
                         #features = torch.from_numpy(features_h5)
-                        return features, label, coords, slide_id
+                    else:
+                        full_path = os.path.join(data_dir,'h5_files','{}.h5'.format(slide_id))
+                        with h5py.File(full_path,'r') as hdf5_file:
+                            features = hdf5_file['features'][:]
+                            coords = hdf5_file['coords'][:]
+                        features = torch.from_numpy(features)
+                    return features, label, coords, slide_id
 
 
 class Generic_Split(Generic_MIL_Dataset):
