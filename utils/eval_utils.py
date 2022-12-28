@@ -484,7 +484,17 @@ def summary_sampling(model, dataset, args):
     if len(np.unique(all_labels)) == 2:
         auc_score = roc_auc_score(all_labels, all_probs[:, 1])
     else:
-        raise NotImplementedError("AUC scoring not implemented for multiclass classification in evaluation")
+        aucs = []
+        n_classes=len(np.unique(all_labels))
+        binary_labels = label_binarize(all_labels, classes=[i for i in range(n_classes)])
+        for class_idx in range(n_classes):
+            if class_idx in all_labels:
+                fpr, tpr, _ = roc_curve(binary_labels[:, class_idx], all_probs[:, class_idx])
+                aucs.append(auc(fpr, tpr))
+            else:
+                aucs.append(float('nan'))
+
+            auc_score = np.nanmean(np.array(aucs))
 
     results_dict = {'Y': all_labels, 'Y_hat': all_preds}
     for c in range(args.n_classes):
