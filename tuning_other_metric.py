@@ -6,7 +6,7 @@ tuner = tune.Tuner.restore(
 
 results = tuner.fit()
 
-best_trial = results.get_best_result("loss", "min","avg")
+best_trial = results.get_best_result("loss", "min","all")
 print("best trial:", best_trial)
 print("Best trial config: {}".format(best_trial.config))
 print("Best trial final loss: {}".format(best_trial.metrics["loss"]))
