@@ -234,8 +234,10 @@ def summary_sampling(model, dataset, args):
     
     num_random=int(args.samples_per_iteration*args.sampling_random)
     
-    
-    total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
+    if args.fully_random:
+        total_samples_per_slide=args.samples_per_iteration    
+    else:
+        total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, contents in enumerate(iterator):
         if not args.tuning:
@@ -271,14 +273,24 @@ def summary_sampling(model, dataset, args):
         
         ## Generate initial sample_idsx
         #print("available patches:", len(coords))
-        if total_samples_per_slide>=len(coords):
-            print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
-            if args.eval_features:
-                loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
-                data_sample.to(device)
+        if args.fully_random or total_samples_per_slide>=len(coords):
+            if total_samples_per_slide>=len(coords): 
+                print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
+                if args.eval_features:
+                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
+                    data_sample.to(device)
+                else:
+                    data_sample=data
             else:
-                data_sample=data
+                sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
+                if args.eval_features:
+                    sampled_data.update_sample(sample_idxs)
+                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                    data_sample.to(device)
+                else:
+                    data_sample=data[sample_idxs].to(device)
+                    
             with torch.no_grad():
                 logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
