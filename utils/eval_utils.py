@@ -240,7 +240,7 @@ def summary_sampling(model, dataset, args):
         total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
     for batch_idx, contents in enumerate(iterator):
-        if not args.tuning:
+        if not args.tuning and not args.fully_random:
             print('\nprogress: {}/{}'.format(batch_idx, num_slides))
 
         samples_per_iteration=args.samples_per_iteration
