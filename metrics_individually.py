@@ -23,12 +23,6 @@ label_dict=ast.literal_eval(args.label_dict)
 
 for model_name in model_names:
     full_model_name='eval_results/EVAL_'+model_name
-    all_Ys=[]
-    all_p1s=[]
-    all_Yhats=[]
-    all_probs=[]
-    all_ground_truths=[]
-    ground_truths=pd.read_csv("dataset_csv/{}".format(args.data_csv))
 
     all_auc_means=[]
     all_f1_means=[]
@@ -40,15 +34,20 @@ for model_name in model_names:
     all_balanced_accuracy_sds=[]
 
     for run_no in range(args.run_repeats):
+            
+        all_Yhats=[]
+        all_Ys=[]
+        all_p1s=[]
+        all_probs=[]
+
         print("run: ",run_no)
         for fold_no in range(args.folds):
             if args.run_repeats>1:
                 full_df = pd.read_csv(full_model_name+'_run{}/fold_{}.csv'.format(run_no,fold_no))
             else:
                 full_df = pd.read_csv(full_model_name+'/fold_{}.csv'.format(fold_no))
-            all_Ys=all_Ys+list(full_df['Y'])
-            all_p1s=all_p1s+list(full_df['p_1'])
             all_Yhats=all_Yhats+list(full_df['Y_hat'])
+            all_Ys=all_Ys+list(full_df['Y'])
             if args.num_classes==2:
                 all_p1s=all_p1s+list(full_df['p_1'])
             else:
@@ -62,7 +61,7 @@ for model_name in model_names:
         accuracies=[]
         f1s=[]
         balanced_accuracies=[]
-        
+    
         for _ in range(bootstraps):
             idxs=np.random.choice(range(len(all_Ys)),len(all_Ys))
             if args.num_classes==2:
