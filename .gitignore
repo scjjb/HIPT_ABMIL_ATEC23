@@ -2,6 +2,7 @@
 results/
 eval_results/
 splits/
+roc_plots/
 tuning_results/
 metric_results/
 __pycache__/

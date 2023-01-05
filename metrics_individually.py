@@ -2,8 +2,6 @@ import argparse
 import pandas as pd
 from sklearn.metrics import confusion_matrix, f1_score, accuracy_score,balanced_accuracy_score, roc_auc_score
 import numpy as np
-import ast
-
 
 parser = argparse.ArgumentParser(description='Model names input split by commas')
 parser.add_argument('--model_names', type=str, default=None,help='models to plot')
@@ -14,12 +12,10 @@ parser.add_argument('--run_repeats', type=int, default=10,
 parser.add_argument('--folds', type=int, default=10,
                             help='Number of cross-validation folds')
 parser.add_argument('--data_csv', type=str, default='set_all_714.csv')
-parser.add_argument('--label_dict',type=str,default="{'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4}") 
 parser.add_argument('--num_classes',type=int,default=2)
 args = parser.parse_args()
 model_names=args.model_names.split(",")
 bootstraps=args.bootstraps
-label_dict=ast.literal_eval(args.label_dict)
 
 for model_name in model_names:
     full_model_name='eval_results/EVAL_'+model_name
@@ -89,6 +85,6 @@ for model_name in model_names:
             print("Marco F1 mean: ",all_f1_means," F1 std: ",all_f1_sds)
         print("accuracy mean: ",all_accuracy_means," accuracy std: ",all_accuracy_sds)
         print("balanced accuracy mean: ",all_balanced_accuracy_means," balanced accuracy std: ",all_balanced_accuracy_sds)
-    df=pd.DataFrame([[all_auc_means+all_f1_means+all_accuracy_means+all_balanced_accuracy_means],[all_auc_sds+all_f1_sds+all_accuracy_sds+all_balanced_accuracy_sds]])
+    df=pd.DataFrame([[all_auc_means+all_accuracy_means+all_balanced_accuracy_means+all_f1_means],[all_auc_sds+all_accuracy_sds+all_balanced_accuracy_sds+all_f1_sds]])
     df.to_csv("metric_results/"+model_name+".csv",index=False)
 
