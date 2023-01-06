@@ -185,15 +185,15 @@ def main():
         ray.init(num_gpus=1)
                              
         if args.hardware=='DGX':
-            hardware={"cpu":10,"gpu":0.2}
+            hardware={"cpu":10,"gpu":0.1}
         else:
             hardware={"cpu":2,"gpu":0.5}
     
         search_space = {
-            "weight_smoothing":  tune.loguniform(0.0001,0.5),
+            "weight_smoothing":  tune.loguniform(0.05,0.5),
             "resampling_iterations": tune.choice([2,4,6,8,10,12,16]),
-            "sampling_neighbors": tune.choice([4,8,16,32,64]),
-            "sampling_random": tune.uniform(0.25,0.95),
+            "sampling_neighbors": tune.choice([4,8,16,32,48,64]),
+            "sampling_random": tune.uniform(0.00,0.75),
             "sampling_random_delta": tune.loguniform(0.0001,0.5)
         }
 
