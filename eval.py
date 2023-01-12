@@ -92,6 +92,7 @@ parser.add_argument('--fully_random',action='store_true', default=False, help='T
 parser.add_argument('--tuning', action='store_true', default=False, help='run hyperparameter tuning')
 parser.add_argument('--tuning_output_file',type=str,default="tuning_results/tuning_output.csv",help="where to save tuning outputs")
 parser.add_argument('--num_tuning_experiments',type=int,default=100,help="number of tuning experiments")
+parser.add_argument('--same_slide_repeats',type=int,default=1,help='number of times to repeat evaluating each slide to help account for randomness')
 parser.add_argument('--hardware',type=str, choices=['DGX','PC'], default='DGX',help='sets amount of CPU and GPU to use per experiment')
 args = parser.parse_args()
 
@@ -190,7 +191,7 @@ def main():
             hardware={"cpu":2,"gpu":0.5}
     
         search_space = {
-            "weight_smoothing":  tune.loguniform(0.05,0.5),
+            "weight_smoothing":  tune.loguniform(0.15,0.15000001),
             "resampling_iterations": tune.choice([2,4,6,8,10,12,16]),
             "sampling_neighbors": tune.choice([4,8,16,32,48,64]),
             "sampling_random": tune.uniform(0.00,0.75),

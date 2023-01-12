@@ -173,7 +173,13 @@ def summary(model, loader, args):
 
 def summary_sampling(model, dataset, args):
     model.eval()
-    num_slides=len(dataset)
+    
+    if args.tuning:
+        same_slide_repeats=args.same_slide_repeats
+    else:
+        same_slide_repeats=1
+
+    num_slides=len(dataset)*same_slide_repeats
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #if args.cpu_only:
     #    device=torch.device("cpu")
@@ -203,7 +209,7 @@ def summary_sampling(model, dataset, args):
         all_labels = pd.read_csv(args.csv_path)['label']
         all_labels=[label_dict[key] for key in all_labels]
         all_labels_tensor=torch.Tensor(all_labels)
-        iterator=range(num_slides)
+        iterator=range(len(dataset))
     
     else:
         loader = get_simple_loader(dataset)
@@ -239,238 +245,242 @@ def summary_sampling(model, dataset, args):
     else:
         total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
     print("Total patches sampled per slide: ",total_samples_per_slide)
+    
     for batch_idx, contents in enumerate(iterator):
-        if not args.tuning and not args.fully_random:
-            print('\nprogress: {}/{}'.format(batch_idx, num_slides))
+        for repeat_no in range(same_slide_repeats):
+            if not args.tuning and not args.fully_random:
+                print('\nprogress: {}/{}'.format(batch_idx, num_slides))
 
-        samples_per_iteration=args.samples_per_iteration
+            samples_per_iteration=args.samples_per_iteration
+            
+            ## this loading section can probably just go outside the repeat_no loop
+            if args.eval_features:
+                label=all_labels[batch_idx]
+                label_tensor=all_labels_tensor[batch_idx]
+                if isinstance(dataset[batch_idx],np.int64):
+                    slide_id=str(dataset[batch_idx])
+                else:
+                    slide_id = dataset[batch_idx].split(args.slide_ext)[0]
 
-        if args.eval_features:
-            label=all_labels[batch_idx]
-            label_tensor=all_labels_tensor[batch_idx]
-            if isinstance(dataset[batch_idx],np.int64):
-                slide_id=str(dataset[bag_candidate_idx])
-            else:
-                slide_id = dataset[batch_idx].split(args.slide_ext)[0]
-
-            bag_name = slide_id+'.h5'
-            h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
-            slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
+                bag_name = slide_id+'.h5'
+                h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
+                slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
         
-            wsi = openslide.open_slide(slide_file_path)
-            sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
+                wsi = openslide.open_slide(slide_file_path)
+                sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
                                 custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
 
-            coords=sampled_data.coords(len(sampled_data))
-            X = np.array(coords)
+                coords=sampled_data.coords(len(sampled_data))
+                X = np.array(coords)
 
-        else:
-            (data, label,coords,slide_id) = contents
-            coords=torch.tensor(coords)
-            X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
-            data, label, coords = data.to(device), label.to(device), coords.to(device)
-            slide_id=slide_id[0][0]
-        
-        ## Generate initial sample_idsx
-        #print("available patches:", len(coords))
-        if args.fully_random or total_samples_per_slide>=len(coords):
-            if total_samples_per_slide>=len(coords): 
-                print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
-                if args.eval_features:
-                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
-                    data_sample.to(device)
-                else:
-                    data_sample=data
             else:
-                sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
-                if args.eval_features:
-                    sampled_data.update_sample(sample_idxs)
-                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-                    data_sample.to(device)
+                (data, label,coords,slide_id) = contents
+                coords=torch.tensor(coords)
+                X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
+                data, label, coords = data.to(device), label.to(device), coords.to(device)
+                slide_id=slide_id[0][0]
+        
+            ## Generate initial sample_idsx
+            #print("available patches:", len(coords))
+            if args.fully_random or total_samples_per_slide>=len(coords):
+                if total_samples_per_slide>=len(coords): 
+                    print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
+                    if args.eval_features:
+                        loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                        data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
+                        data_sample.to(device)
+                    else:
+                        data_sample=data
                 else:
-                    data_sample=data[sample_idxs].to(device)
+                    sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
+                    if args.eval_features:
+                        sampled_data.update_sample(sample_idxs)
+                        loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                        data_sample.to(device)
+                    else:
+                        data_sample=data[sample_idxs].to(device)
                     
-            with torch.no_grad():
-                logits, Y_prob, Y_hat, _, _ = model(data_sample)
+                with torch.no_grad():
+                    logits, Y_prob, Y_hat, _, _ = model(data_sample)
 
-            acc_logger.log(Y_hat, label)
-            probs = Y_prob.cpu().numpy()
+                acc_logger.log(Y_hat, label)
+                probs = Y_prob.cpu().numpy()
                                    
-            all_probs[batch_idx] = probs
-            all_preds[batch_idx] = Y_hat.item()
-            if args.eval_features:
-                patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
-                error = calculate_error(Y_hat, label_tensor)
-            else:
-                all_labels[batch_idx] = label.item()
-                patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
-                error = calculate_error(Y_hat, label)
-            test_error += error
-            continue
-
-        ## Inital sample
-        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
-        all_sample_idxs=sample_idxs
-        sampling_weights=np.full(shape=len(coords),fill_value=0.0001)
-        if args.eval_features:
-            sampled_data.update_sample(sample_idxs)
-            loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-            if len(sample_idxs)>20000:
-                print("very large slide - using cpu. Disable this functionality if using beefy GPU (approx 8GB GPU ram or more)")
-                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=True)
-            else:
-                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
-            data_sample.to(device)
-            all_previous_features=data_sample
-            all_sample_idxs=sample_idxs
-        else:
-            data_sample=data[sample_idxs].to(device)
-
-        with torch.no_grad():
-            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
-        attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
-        attn_scores_list=raw_attention[0].cpu().tolist()
-        
-        if not args.use_all_samples:
-            if args.samples_per_iteration<=args.retain_best_samples:
-                best_sample_idxs=sample_idxs
-                best_attn_scores=attn_scores_list
-            else:
-                attn_idxs=[idx.item() for idx in np.argsort(attn_scores_list)][::-1]
-                best_sample_idxs=[sample_idxs[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-                best_attn_scores=[attn_scores_list[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-
-        if args.plot_sampling_gif:
-            slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_iteration=False)
-        
-        if args.plot_weighting_gif:
-            slide,x_coords,y_coords=plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,0,slide=None,final_iteration=False)
-
-        Y_hats.append(Y_hat)
-        labels.append(label)
-        Y_probs.append(Y_prob)
-        all_logits.append(logits)
-
-        ## Find nearest neighbors of each patch to prepare for spatial resampling
-        nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
-        distances, indices = nbrs.kneighbors(X[sample_idxs])
-        
-        ## Subsequent iterations
-        sampling_random=args.sampling_random
-        neighbors=args.sampling_neighbors
-        for iteration_count in range(args.resampling_iterations-1):
-            if sampling_random>args.sampling_random_delta:
-                sampling_random=sampling_random-args.sampling_random_delta
-            else:
-                sampling_random=0
-            num_random=int(samples_per_iteration*sampling_random)
-            #attention_scores=attention_scores/max(attention_scores)
-                                                                        
-            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
-                                        sampling_update=sampling_update,repeats_allowed=False)
-            
-            if args.plot_weighting_gif:
-                                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=False)
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
-            distances, indices = nbrs.kneighbors(X[sample_idxs])
-            all_sample_idxs=all_sample_idxs+sample_idxs
-                
-            if args.plot_sampling_gif:
-                if args.use_all_samples:
-                    plot_sampling_gif(slide_id,coords[all_sample_idxs],args,iteration_count+1,slide,final_iteration=False)
+                all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
+                all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
+                if args.eval_features:
+                    patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
+                    error = calculate_error(Y_hat, label_tensor)
                 else:
-                    plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=False)
+                    all_labels[(batch_idx*same_slide_repeats)+repeat_no] = label.item()
+                    patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
+                    error = calculate_error(Y_hat, label)
+                test_error += error
+                continue
 
+            ## Inital sample
+            sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=args.initial_grid_sample,coords=coords)
+            all_sample_idxs=sample_idxs
+            sampling_weights=np.full(shape=len(coords),fill_value=0.0001)
             if args.eval_features:
                 sampled_data.update_sample(sample_idxs)
                 loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
-                all_previous_features=torch.cat((all_previous_features,data_sample))
-                if args.use_all_samples:
-                    if iteration_count==args.resampling_iterations-2: 
-                        data_sample=all_previous_features
+                if len(sample_idxs)>20000:
+                    print("very large slide - using cpu. Disable this functionality if using beefy GPU (approx 8GB GPU ram or more)")
+                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=True)
+                else:
+                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
                 data_sample.to(device)
+                all_previous_features=data_sample
+                all_sample_idxs=sample_idxs
             else:
                 data_sample=data[sample_idxs].to(device)
 
-
             with torch.no_grad():
                 logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
-            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
-            attention_scores=attention_scores[-samples_per_iteration:]
+            attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]#.cpu()
             attn_scores_list=raw_attention[0].cpu().tolist()
-
+        
             if not args.use_all_samples:
-                attn_scores_combined=attn_scores_list+best_attn_scores
-                idxs_combined=sample_idxs+best_sample_idxs
-
-                if len(idxs_combined)<=args.retain_best_samples:
-                    best_sample_idxs=idxs_combined
-                    best_attn_scores=attn_scores_combined
+                if args.samples_per_iteration<=args.retain_best_samples:
+                    best_sample_idxs=sample_idxs
+                    best_attn_scores=attn_scores_list
                 else:
-                    attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
-                    best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
-                    best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
+                    attn_idxs=[idx.item() for idx in np.argsort(attn_scores_list)][::-1]
+                    best_sample_idxs=[sample_idxs[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
+                    best_attn_scores=[attn_scores_list[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
+
+            if args.plot_sampling_gif:
+                slide=plot_sampling_gif(slide_id,coords[sample_idxs],args,0,slide=None,final_iteration=False)
+        
+            if args.plot_weighting_gif:
+                slide,x_coords,y_coords=plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,0,slide=None,final_iteration=False)
+
             Y_hats.append(Y_hat)
             labels.append(label)
             Y_probs.append(Y_prob)
             all_logits.append(logits)
+
+            ## Find nearest neighbors of each patch to prepare for spatial resampling
+            nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+            distances, indices = nbrs.kneighbors(X[sample_idxs])
+        
+            ##Subsequent iterations
+            sampling_random=args.sampling_random
+            neighbors=args.sampling_neighbors
+            for iteration_count in range(args.resampling_iterations-1):
+                if sampling_random>args.sampling_random_delta:
+                    sampling_random=sampling_random-args.sampling_random_delta
+                else:
+                    sampling_random=0
+                num_random=int(samples_per_iteration*sampling_random)
+                #attention_scores=attention_scores/max(attention_scores)
+                                                                        
+                sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
+                                        sampling_update=sampling_update,repeats_allowed=False)
+            
+                if args.plot_weighting_gif:
+                                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=False)
+                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)
+                distances, indices = nbrs.kneighbors(X[sample_idxs])
+                all_sample_idxs=all_sample_idxs+sample_idxs
+                
+                if args.plot_sampling_gif:
+                    if args.use_all_samples:
+                        plot_sampling_gif(slide_id,coords[all_sample_idxs],args,iteration_count+1,slide,final_iteration=False)
+                    else:
+                        plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=False)
+
+                if args.eval_features:
+                    sampled_data.update_sample(sample_idxs)
+                    loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                    data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=False)
+                    all_previous_features=torch.cat((all_previous_features,data_sample))
+                    if args.use_all_samples:
+                        if iteration_count==args.resampling_iterations-2: 
+                            data_sample=all_previous_features
+                    data_sample.to(device)
+                else:
+                    data_sample=data[sample_idxs].to(device)
+
+
+                with torch.no_grad():
+                    logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+                attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0].cpu()
+                attention_scores=attention_scores[-samples_per_iteration:]
+                attn_scores_list=raw_attention[0].cpu().tolist()
+
+                if not args.use_all_samples:
+                    attn_scores_combined=attn_scores_list+best_attn_scores
+                    idxs_combined=sample_idxs+best_sample_idxs
+
+                    if len(idxs_combined)<=args.retain_best_samples:
+                        best_sample_idxs=idxs_combined
+                        best_attn_scores=attn_scores_combined
+                    else:
+                        attn_idxs=[idx.item() for idx in np.argsort(attn_scores_combined)][::-1]
+                        best_sample_idxs=[idxs_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
+                        best_attn_scores=[attn_scores_combined[attn_idx] for attn_idx in attn_idxs][:args.retain_best_samples]
+                Y_hats.append(Y_hat)
+                labels.append(label)
+                Y_probs.append(Y_prob)
+                all_logits.append(logits)
                                                              
-            neighbors=neighbors-args.sampling_neighbors_delta
+                neighbors=neighbors-args.sampling_neighbors_delta
         
-        ## Final sampling iteration
-        sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
+            ## Final sampling iteration
+            sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
                                 sampling_update=sampling_update,repeats_allowed=False)
-        if args.use_all_samples:
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.final_sample_size,num_random=0)
-            sample_idxs=sample_idxs+all_sample_idxs
-            all_sample_idxs=sample_idxs
-        else:
-            sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
-            all_sample_idxs=all_sample_idxs+sample_idxs
-            sample_idxs=sample_idxs+best_sample_idxs
-    
-        if args.plot_sampling:
-            plot_sampling(slide_id,coords[sample_idxs],args)
-        if args.plot_sampling_gif:
-            plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
-        if args.plot_weighting:
-            plot_weighting(slide_id,coords,sampling_weights,args)
-        if args.plot_weighting_gif:
-            plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=True)
-
-        if args.eval_features:
-            sampled_data.update_sample(sample_idxs)
-            loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
-            data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
-            all_previous_features=torch.cat((all_previous_features,data_sample))
             if args.use_all_samples:
-                data_sample=all_previous_features
-            data_sample.to(device)
-        else:
-            data_sample=data[sample_idxs].to(device)
+                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),args.final_sample_size,num_random=0)
+                sample_idxs=sample_idxs+all_sample_idxs
+                all_sample_idxs=sample_idxs
+            else:
+                sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),int(args.final_sample_size-len(best_sample_idxs)),num_random=0)
+                all_sample_idxs=all_sample_idxs+sample_idxs
+                sample_idxs=sample_idxs+best_sample_idxs
+    
+            if args.plot_sampling:
+                plot_sampling(slide_id,coords[sample_idxs],args)
+            if args.plot_sampling_gif:
+                plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
+            if args.plot_weighting:
+                plot_weighting(slide_id,coords,sampling_weights,args)
+            if args.plot_weighting_gif:
+                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=True)
 
-        with torch.no_grad():
-            logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+            if args.eval_features:
+                sampled_data.update_sample(sample_idxs)
+                loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
+                data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
+                all_previous_features=torch.cat((all_previous_features,data_sample))
+                if args.use_all_samples:
+                    data_sample=all_previous_features
+                data_sample.to(device)
+            else:
+                data_sample=data[sample_idxs].to(device)
 
-        acc_logger.log(Y_hat, label)
-        probs = Y_prob.cpu().numpy()
+            with torch.no_grad():
+                logits, Y_prob, Y_hat, raw_attention, results_dict = model(data_sample)
+
+            acc_logger.log(Y_hat, label)
+            probs = Y_prob.cpu().numpy()
         
-        all_probs[batch_idx] = probs
-        all_preds[batch_idx] = Y_hat.item()
+            all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
+            all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
         
-        if args.eval_features:
-            patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
-            error = calculate_error(Y_hat, label_tensor)
-        else:
-            all_labels[batch_idx] = label.item()
-            patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
-            error = calculate_error(Y_hat, label)
+            if args.eval_features:
+                patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
+                error = calculate_error(Y_hat, label_tensor)
+            else:
+                all_labels[(batch_idx*same_slide_repeats)+repeat_no] = label.item()
+                patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': label.item()}})
+                error = calculate_error(Y_hat, label)
 
-        test_error += error
-        #print("len all sample idxs",len(all_sample_idxs))
-
+            test_error += error
+            #print("len all sample idxs",len(all_sample_idxs))
+    
+    #assert 1==2, "probs {} labels {}".format(len(all_probs),len(all_labels))
     all_errors=[]
     if args.eval_features:
         for i in range(args.resampling_iterations):
