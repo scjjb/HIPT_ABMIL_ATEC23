@@ -247,39 +247,39 @@ def summary_sampling(model, dataset, args):
     print("Total patches sampled per slide: ",total_samples_per_slide)
     
     for batch_idx, contents in enumerate(iterator):
-        for repeat_no in range(same_slide_repeats):
-            if not args.tuning and not args.fully_random:
-                print('\nprogress: {}/{}'.format(batch_idx, num_slides))
+        if not args.tuning and not args.fully_random:
+            print('\nprogress: {}/{}'.format(batch_idx, num_slides))
+        
+        ## get features, either by calculating now or loading from file
+        if args.eval_features:
+            label=all_labels[batch_idx]
+            label_tensor=all_labels_tensor[batch_idx]
+            if isinstance(dataset[batch_idx],np.int64):
+                slide_id=str(dataset[batch_idx])
+            else:
+                slide_id = dataset[batch_idx].split(args.slide_ext)[0]
 
+            bag_name = slide_id+'.h5'
+            h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
+            slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
+
+            wsi = openslide.open_slide(slide_file_path)
+            sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
+                        custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
+            coords=sampled_data.coords(len(sampled_data))
+            X = np.array(coords)
+
+        else:
+            (data, label,coords,slide_id) = contents
+            coords=torch.tensor(coords)
+            X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
+            data, label, coords = data.to(device), label.to(device), coords.to(device)
+            slide_id=slide_id[0][0]
+
+
+        for repeat_no in range(same_slide_repeats):
             samples_per_iteration=args.samples_per_iteration
             
-            ## this loading section can probably just go outside the repeat_no loop
-            if args.eval_features:
-                label=all_labels[batch_idx]
-                label_tensor=all_labels_tensor[batch_idx]
-                if isinstance(dataset[batch_idx],np.int64):
-                    slide_id=str(dataset[batch_idx])
-                else:
-                    slide_id = dataset[batch_idx].split(args.slide_ext)[0]
-
-                bag_name = slide_id+'.h5'
-                h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
-                slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
-        
-                wsi = openslide.open_slide(slide_file_path)
-                sampled_data = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, pretrained=True,
-                                custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size)
-
-                coords=sampled_data.coords(len(sampled_data))
-                X = np.array(coords)
-
-            else:
-                (data, label,coords,slide_id) = contents
-                coords=torch.tensor(coords)
-                X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
-                data, label, coords = data.to(device), label.to(device), coords.to(device)
-                slide_id=slide_id[0][0]
-        
             ## Generate initial sample_idsx
             #print("available patches:", len(coords))
             if args.fully_random or total_samples_per_slide>=len(coords):
