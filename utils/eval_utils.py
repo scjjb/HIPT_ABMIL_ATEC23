@@ -196,7 +196,8 @@ def summary_sampling(model, dataset, args):
     labels=[]
     Y_probs=[]
     all_logits=[]
-
+    all_probs=[]
+    all_labels_byrep=[]
     if args.eval_features:
         if args.cpu_only:
             device=torch.device("cpu")
@@ -234,7 +235,7 @@ def summary_sampling(model, dataset, args):
 
     test_loss = 0.
     test_error = 0.
-    all_probs = np.zeros((num_slides, args.n_classes))
+    #all_probs = np.zeros((num_slides, args.n_classes))
     all_preds = np.zeros(num_slides)
     patient_results = {}
     
@@ -305,8 +306,10 @@ def summary_sampling(model, dataset, args):
 
                 acc_logger.log(Y_hat, label)
                 probs = Y_prob.cpu().numpy()
-                                   
-                all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
+                 
+                all_probs.append(probs[0])
+                all_labels_byrep.append(label[0].item())
+                #all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
                 all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
                 if args.eval_features:
                     patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
@@ -466,9 +469,12 @@ def summary_sampling(model, dataset, args):
             acc_logger.log(Y_hat, label)
             probs = Y_prob.cpu().numpy()
         
-            all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
+            #all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
+            all_probs.append(probs[0])
+            all_labels_byrep.append(label[0].item())
             all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
-        
+            
+
             if args.eval_features:
                 patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
                 error = calculate_error(Y_hat, label_tensor)
@@ -503,8 +509,11 @@ def summary_sampling(model, dataset, args):
         
     test_error /= num_slides
     aucs = []
+    all_probs=np.array(all_probs)
     if len(np.unique(all_labels)) == 2:
-        auc_score = roc_auc_score(all_labels, all_probs[:, 1])
+        #print(all_labels_byrep)
+        #print(all_probs)
+        auc_score = roc_auc_score(all_labels_byrep, all_probs[:,1])
     else:
         aucs = []
         n_classes=len(np.unique(all_labels))
