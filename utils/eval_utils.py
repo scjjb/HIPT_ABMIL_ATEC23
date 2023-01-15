@@ -84,7 +84,7 @@ def eval(config, dataset, args, ckpt_path):
     if args.tuning:
         args.weight_smoothing=config["weight_smoothing"]
         args.resampling_iterations=config["resampling_iterations"]
-        args.samples_per_iteration=int(960/(config["resampling_iterations"]))
+        args.samples_per_iteration=int(1200/(config["resampling_iterations"]))
         args.sampling_neighbors=config["sampling_neighbors"]
         args.sampling_random=config["sampling_random"]
         args.sampling_random_delta=config["sampling_random_delta"]
@@ -510,6 +510,10 @@ def summary_sampling(model, dataset, args):
     test_error /= num_slides
     aucs = []
     all_probs=np.array(all_probs)
+    #print(all_labels_byrep)
+    #print(all_probs)
+    #print(roc_auc_score(all_labels_byrep,all_probs[:,1]))
+    #print(len(all_labels_byrep))
     if len(np.unique(all_labels)) == 2:
         #print(all_labels_byrep)
         #print(all_probs)
