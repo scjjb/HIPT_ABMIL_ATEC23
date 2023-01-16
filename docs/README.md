@@ -1,7 +1,12 @@
 # DRAS-MIL <img src="CISTIB logo.png" align="right" width="240"/>
 **D**iscriminative **R**egion **A**ctive **S**ampling for **M**ultiple **I**nstance **L**earning
 
+[Upcoming Presentation](https://spie.org/medical-imaging/presentation/Efficient-subtyping-of-ovarian-cancer-histopathology-whole-slide-images-using/12471-38?enableBackToBrowse=true)
+
+*DRAS-MIL is a sampling approach to improve the efficiency of evaluating histopathology slides while minimising the loss of classification accuracy.* 
+
 <img src="482772_spatial.gif" width="500px" align="centre" />
+
 
 
 ## Workflows
