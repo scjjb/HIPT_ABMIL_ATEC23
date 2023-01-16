@@ -4,7 +4,27 @@
 <img src="482772_spatial.gif" width="500px" align="centre" />
 
 
+## Workflows
+### Baseline model training
+1. Whole slide tissue detection and patching (create_patches_fp.py)
+1. Feature extraction (extract_features_fp.py)
+1. Creation of cross-validation folds (create_splits_seq.py)
+1. Model training (main.py)
+1. Slide evaluation (eval.py)
+1. Model evaluation (other_metrics.py)
 
+### DRAS-MIL evaluation experiments
+Here we pre-compute all features as we will run multiple experiments, so will not save time by only computing relevant features
+1. Whole slide tissue detection and patching (create_patches_fp.py)
+1. Feature extraction (extract_features_fp.py)
+1. Slide evaluation (eval.py with --sampling)
+1. Model evaluation (other_metrics.py)
+
+## DRAS-MIL evaluation in practice
+Here features are evaluated only when needed
+1. Whole slide tissue detection and patching (create_patches_fp.py)
+1. Slide evaluation (eval.py with --sampling and --eval_features)
+1. Model evaluation (other_metrics.py)
 
 
 ## Reference
