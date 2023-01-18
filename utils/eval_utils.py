@@ -84,7 +84,7 @@ def eval(config, dataset, args, ckpt_path):
     if args.tuning:
         args.weight_smoothing=config["weight_smoothing"]
         args.resampling_iterations=config["resampling_iterations"]
-        args.samples_per_iteration=int(960/(config["resampling_iterations"]))
+        args.samples_per_iteration=int(1200/(config["resampling_iterations"]))
         args.sampling_neighbors=config["sampling_neighbors"]
         args.sampling_random=config["sampling_random"]
         args.sampling_random_delta=config["sampling_random_delta"]
@@ -274,6 +274,7 @@ def summary_sampling(model, dataset, args):
             (data, label,coords,slide_id) = contents
             coords=torch.tensor(coords)
             X = generate_features_array(args, data, coords, slide_id, slide_id_list, texture_dataset)
+            nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
             data, label, coords = data.to(device), label.to(device), coords.to(device)
             slide_id=slide_id[0][0]
 
@@ -365,7 +366,7 @@ def summary_sampling(model, dataset, args):
             all_logits.append(logits)
 
             ## Find nearest neighbors of each patch to prepare for spatial resampling
-            nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+            #nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
             distances, indices = nbrs.kneighbors(X[sample_idxs])
         
             ##Subsequent iterations
@@ -381,7 +382,10 @@ def summary_sampling(model, dataset, args):
                                                                         
                 sampling_weights=update_sampling_weights(sampling_weights,attention_scores,all_sample_idxs,indices,neighbors,power=args.weight_smoothing,normalise=False,
                                         sampling_update=sampling_update,repeats_allowed=False)
-            
+                #sampling_weights_over20=[weight for weight in sampling_weights if weight>0.2]
+                #print(sampling_weights)
+                #print(max(sampling_weights))
+                #print(len(sampling_weights_over20))
                 if args.plot_weighting_gif:
                                 plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=False)
                 sample_idxs=generate_sample_idxs(len(coords),all_sample_idxs,sampling_weights/sum(sampling_weights),samples_per_iteration,num_random)

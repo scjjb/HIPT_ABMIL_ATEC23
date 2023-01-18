@@ -85,6 +85,6 @@ for model_name in model_names:
             print("Marco F1 mean: ",all_f1_means," F1 std: ",all_f1_sds)
         print("accuracy mean: ",all_accuracy_means," accuracy std: ",all_accuracy_sds)
         print("balanced accuracy mean: ",all_balanced_accuracy_means," balanced accuracy std: ",all_balanced_accuracy_sds)
-    df=pd.DataFrame([[all_auc_means+all_accuracy_means+all_balanced_accuracy_means+all_f1_means],[all_auc_sds+all_accuracy_sds+all_balanced_accuracy_sds+all_f1_sds]])
+    df=pd.DataFrame([[all_auc_means],[all_accuracy_means],[all_balanced_accuracy_means],[all_f1_means],[all_auc_sds],[all_accuracy_sds],[all_balanced_accuracy_sds],[all_f1_sds]])
     df.to_csv("metric_results/"+model_name+".csv",index=False)
 
