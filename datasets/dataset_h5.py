@@ -133,7 +133,6 @@ class Whole_Slide_Bag_FP(Dataset):
                                 self.target_patch_size = (self.patch_size // custom_downsample, ) * 2
                         else:
                                 self.target_patch_size = None
-                print("coords : ",self.selected_coords)
         
         def __len__(self):
                 return self.length
