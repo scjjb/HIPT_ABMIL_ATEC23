@@ -84,7 +84,7 @@ def eval(config, dataset, args, ckpt_path):
     if args.tuning:
         args.weight_smoothing=config["weight_smoothing"]
         args.resampling_iterations=config["resampling_iterations"]
-        args.samples_per_iteration=int(1200/(config["resampling_iterations"]))
+        args.samples_per_iteration=int(960/(config["resampling_iterations"]))
         args.sampling_neighbors=config["sampling_neighbors"]
         args.sampling_random=config["sampling_random"]
         args.sampling_random_delta=config["sampling_random_delta"]

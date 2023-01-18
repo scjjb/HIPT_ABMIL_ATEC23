@@ -121,13 +121,14 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         
         ## WORKING CODE but no longer fastest 
         ########################################################
-        #for i in range(len(indices)):
-        #    for index in indices[i][:neighbors]:
-        #        if new_attentions[index]>0:
-        #            if attention_scores[i]>new_attentions[index]:
-        #                new_attentions[index]=attention_scores[i]
-        #        else:
-        #            new_attentions[index]=attention_scores[i]
+        #print("WARNING: USING OLDER VERSION OF CODE IN SAMPLING_UTILS")
+        for i in range(len(indices)):
+            for index in indices[i][:neighbors]:
+                if new_attentions[index]>0:
+                    if attention_scores[i]>new_attentions[index]:
+                        new_attentions[index]=attention_scores[i]
+                else:
+                    new_attentions[index]=attention_scores[i]
         #######################################################
         
         ## this needs indices as a dict
@@ -135,16 +136,16 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
         
         ## New fastest code - it has quartered the runtime of update_sampling_weights but certainly isnt working with eval.py (seems to be working with main.py - check this)
         #####################################
-        indices_dict={}
-        for i,row in enumerate(indices):
-            indices_dict[i]=row 
-        for key,values in indices_dict.items():
-            for index in values:
-                if new_attentions[index]>0:
-                    if attention_scores[i]>new_attentions[index]:
-                        new_attentions[index]=attention_scores[key]
-                else:
-                        new_attentions[index]=attention_scores[key]
+        #indices_dict={}
+        #for i,row in enumerate(indices):
+        #    indices_dict[i]=row 
+        #for key,values in indices_dict.items():
+        #    for index in values:
+        #        if new_attentions[index]>0:
+        #            if attention_scores[i]>new_attentions[index]:
+        #                new_attentions[index]=attention_scores[key]
+        #        else:
+        #                new_attentions[index]=attention_scores[key]
         ########################################
 
         #with Pool() as pool:

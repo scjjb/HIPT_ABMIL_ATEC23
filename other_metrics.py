@@ -13,7 +13,7 @@ parser.add_argument('--run_repeats', type=int, default=10,
                             help='Number of model repeats')
 parser.add_argument('--folds', type=int, default=10,
                             help='Number of cross-validation folds')
-parser.add_argument('--data_csv', type=str, default='set_all_998.csv')
+parser.add_argument('--data_csv', type=str, default='set_all_714.csv')
 parser.add_argument('--label_dict',type=str,default="{'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4}") 
 parser.add_argument('--num_classes',type=int,default=2)
 args = parser.parse_args()
@@ -33,26 +33,29 @@ for model_name in model_names:
     for run_no in range(args.run_repeats):
         for fold_no in range(args.folds):
             if args.run_repeats>1:
-                full_df = pd.read_csv(model_name+'_run{}/fold_{}.csv'.format(run_no+1,fold_no))
+                full_df = pd.read_csv(model_name+'_run{}/fold_{}.csv'.format(run_no,fold_no))
             else:
                 full_df = pd.read_csv(model_name+'/fold_{}.csv'.format(fold_no))
             all_Ys=all_Ys+list(full_df['Y'])
             all_p1s=all_p1s+list(full_df['p_1'])
             all_Yhats=all_Yhats+list(full_df['Y_hat'])
-            all_slides=all_slides+list(full_df['slide_id'])
+            #all_slides=all_slides+list(full_df['slide_id'])
     print("predicted")
     print("hgsc other")
     print(confusion_matrix(all_Ys,all_Yhats),"\n")
     
-    if args.num_classes<5:
-        for slide in all_slides:
-            all_ground_truths=all_ground_truths+list(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
-            if len(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])>1:
-                print(slide)
-                print(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
-        print("predicted")
-        print("hgsc other")
-        print(confusion_matrix([label_dict[true] for true in all_ground_truths],all_Yhats),"\n")
+    ## below was a non-symettric confusion matrix shown as a 5x5 with lots of 0s
+    #if args.num_classes<5:
+        #for slide in all_slides:
+        #    all_ground_truths=all_ground_truths+list(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
+        #    if len(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])>1:
+        #        print(slide)
+        #        print(ground_truths.loc[ground_truths['slide_id'] == str(slide)]['label'])
+       #### print("predicted")
+       #### print("hgsc other")
+        #all_ground_truths=[label_dict[str(int(Y))] for Y in all_Ys]
+       #### print(confusion_matrix(all_Ys,all_Yhats),"\n")
+        #print(confusion_matrix([label_dict[true] for true in all_ground_truths],all_Yhats),"\n")
 
     f1s=[]
     accuracies=[]
