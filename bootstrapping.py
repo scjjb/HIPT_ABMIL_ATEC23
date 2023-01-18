@@ -34,7 +34,7 @@ for model_name in model_names:
     for run_no in range(args.run_repeats):
         for fold_no in range(args.folds):
             if args.run_repeats>1:
-                full_df = pd.read_csv(model_name+'_run{}/fold_{}.csv'.format(run_no,fold_no))
+                full_df = pd.read_csv(model_name+'_run{}/fold_{}.csv'.format(run_no,fold_no+2))
             else:
                 full_df = pd.read_csv(model_name+'/fold_{}.csv'.format(fold_no))
             all_Ys=all_Ys+list(full_df['Y'])
