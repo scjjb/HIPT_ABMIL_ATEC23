@@ -514,6 +514,10 @@ def summary_sampling(model, dataset, args):
     test_error /= num_slides
     aucs = []
     all_probs=np.array(all_probs)
+    #print(all_labels_byrep)
+    #print(all_probs)
+    #print(roc_auc_score(all_labels_byrep,all_probs[:,1]))
+    #print(len(all_labels_byrep))
     if len(np.unique(all_labels)) == 2:
         #print(all_labels_byrep)
         #print(all_probs)
