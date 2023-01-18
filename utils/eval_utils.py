@@ -281,13 +281,14 @@ def summary_sampling(model, dataset, args):
 
         for repeat_no in range(same_slide_repeats):
             samples_per_iteration=args.samples_per_iteration
-            
             ## Generate initial sample_idsx
             #print("available patches:", len(coords))
-            if args.fully_random or total_samples_per_slide>=len(coords):
-                if total_samples_per_slide>=len(coords): 
+            if not args.sampling or args.fully_random or total_samples_per_slide>=len(coords):
+                if not args.sampling or total_samples_per_slide>=len(coords): 
                     print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
                     if args.eval_features:
+                        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=False,coords=coords)
+                        sampled_data.update_sample(sample_idxs)
                         loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
                         data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
                         data_sample.to(device)
@@ -309,7 +310,10 @@ def summary_sampling(model, dataset, args):
                 probs = Y_prob.cpu().numpy()
                  
                 all_probs.append(probs[0])
-                all_labels_byrep.append(label[0].item())
+                if args.eval_features:
+                    all_labels_byrep.append(label)
+                else:
+                    all_labels_byrep.append(label[0].item())
                 #all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
                 all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
                 if args.eval_features:
@@ -366,7 +370,7 @@ def summary_sampling(model, dataset, args):
             all_logits.append(logits)
 
             ## Find nearest neighbors of each patch to prepare for spatial resampling
-            #nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
+            nbrs = NearestNeighbors(n_neighbors=args.sampling_neighbors, algorithm='ball_tree').fit(X)
             distances, indices = nbrs.kneighbors(X[sample_idxs])
         
             ##Subsequent iterations
@@ -475,7 +479,7 @@ def summary_sampling(model, dataset, args):
         
             #all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
             all_probs.append(probs[0])
-            all_labels_byrep.append(label[0].item())
+            all_labels_byrep.append(label)
             all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
             
 

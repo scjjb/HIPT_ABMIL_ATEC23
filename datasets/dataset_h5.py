@@ -118,12 +118,12 @@ class Whole_Slide_Bag_FP(Dataset):
                         self.roi_transforms = custom_transforms
 
                 self.file_path = file_path
-
+                
                 with h5py.File(self.file_path, "r") as f:
-                        if selected_idxs:
-                            self.selected_coords=f['coords'][sorted(list(set(selected_idxs)))]
+                        if selected_idxs is None:
+                            self.selected_coords=f['coords']
                         else:
-                            self.selected_coords = f['coords']
+                            self.selected_coords = f['coords'][sorted(list(set(selected_idxs)))]
                         self.patch_level = f['coords'].attrs['patch_level']
                         self.patch_size = f['coords'].attrs['patch_size']
                         self.length = len(self.selected_coords)
@@ -133,7 +133,8 @@ class Whole_Slide_Bag_FP(Dataset):
                                 self.target_patch_size = (self.patch_size // custom_downsample, ) * 2
                         else:
                                 self.target_patch_size = None
-                        
+                print("coords : ",self.selected_coords)
+        
         def __len__(self):
                 return self.length
 
