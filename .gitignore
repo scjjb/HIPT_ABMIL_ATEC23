@@ -1,5 +1,6 @@
 **/.DS_Store
 *.sh
+*.gif
 results/
 eval_results/
 splits/
