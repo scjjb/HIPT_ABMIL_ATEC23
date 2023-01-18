@@ -245,7 +245,8 @@ def summary_sampling(model, dataset, args):
         total_samples_per_slide=args.samples_per_iteration    
     else:
         total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
-    print("Total patches sampled per slide: ",total_samples_per_slide)
+    if not args.sampling:
+        print("Total patches sampled per slide: ",total_samples_per_slide)
     
     for batch_idx, contents in enumerate(iterator):
         if not args.tuning and not args.fully_random:
@@ -287,7 +288,7 @@ def summary_sampling(model, dataset, args):
                 if not args.sampling or total_samples_per_slide>=len(coords): 
                     print("full slide used for slide {} with {} patches".format(slide_id,len(coords)))
                     if args.eval_features:
-                        sample_idxs=generate_sample_idxs(len(coords),[],[],samples_per_iteration,num_random=samples_per_iteration,grid=False,coords=coords)
+                        sample_idxs=generate_sample_idxs(len(coords),[],[],len(coords),num_random=len(coords),grid=False,coords=coords)
                         sampled_data.update_sample(sample_idxs)
                         loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
                         data_sample=extract_features(args,loader,feature_extraction_model,use_cpu=args.cpu_only)
