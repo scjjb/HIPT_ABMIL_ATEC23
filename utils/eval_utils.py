@@ -245,7 +245,7 @@ def summary_sampling(model, dataset, args):
         total_samples_per_slide=args.samples_per_iteration    
     else:
         total_samples_per_slide = (args.samples_per_iteration*args.resampling_iterations)+args.final_sample_size
-    if not args.sampling:
+    if args.sampling:
         print("Total patches sampled per slide: ",total_samples_per_slide)
     
     for batch_idx, contents in enumerate(iterator):
@@ -306,7 +306,7 @@ def summary_sampling(model, dataset, args):
                     
                 with torch.no_grad():
                     logits, Y_prob, Y_hat, _, _ = model(data_sample)
-
+                Y_hats.append(Y_hat)
                 acc_logger.log(Y_hat, label)
                 probs = Y_prob.cpu().numpy()
                  
@@ -497,24 +497,25 @@ def summary_sampling(model, dataset, args):
     
     #assert 1==2, "probs {} labels {}".format(len(all_probs),len(all_labels))
     all_errors=[]
-    if args.eval_features:
-        for i in range(args.resampling_iterations):
-            all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.resampling_iterations]),torch.Tensor(all_labels)),3))
-    else:
+    #if args.eval_features:
+      #  #for i in range(args.resampling_iterations):
+            #all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.resampling_iterations]),torch.Tensor(all_labels)),3))
+    if not args.eval_features:
         for i in range(args.resampling_iterations):
             all_errors.append(round(calculate_error(torch.Tensor(Y_hats[i::args.resampling_iterations]),torch.Tensor(labels[i::args.resampling_iterations])),3))
 
-    all_aucs=[]
-    if len(np.unique(all_labels)) == 2:
-        if len(all_labels)==len([yprob.tolist()[0][1] for yprob in Y_probs[0::args.resampling_iterations]]):
-            for i in range(args.resampling_iterations):
-                auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.resampling_iterations]])
-                all_aucs.append(round(auc_score,3))
-            print("all aucs: ",all_aucs)
+    
+        all_aucs=[]
+        if len(np.unique(all_labels)) == 2:
+            if len(all_labels)==len([yprob.tolist()[0][1] for yprob in Y_probs[0::args.resampling_iterations]]):
+                for i in range(args.resampling_iterations):
+                    auc_score = roc_auc_score(all_labels,[yprob.tolist()[0][1] for yprob in Y_probs[i::args.resampling_iterations]])
+                    all_aucs.append(round(auc_score,3))
+                print("all aucs: ",all_aucs)
+            else:
+                print("scoring by iteration unavailable as not all slides could be sampled")
         else:
-            print("scoring by iteration unavailable as not all slides could be sampled")
-    else:
-        print("AUC scoring by iteration not implemented for multi-class classification yet")
+            print("AUC scoring by iteration not implemented for multi-class classification yet")
         
     test_error /= num_slides
     aucs = []
