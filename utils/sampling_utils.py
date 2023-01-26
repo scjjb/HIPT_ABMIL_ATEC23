@@ -187,7 +187,7 @@ def update_sampling_weights(sampling_weights, attention_scores, all_sample_idxs,
     return sampling_weights
 
 
-def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
+def plot_sampling(slide_id,sample_coords,args,correct=False,thumbnail_size=1000):
     print("Plotting slide {} with {} samples".format(slide_id,len(sample_coords)))
     slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
     img = slide.get_thumbnail((thumbnail_size,thumbnail_size))
@@ -200,11 +200,15 @@ def plot_sampling(slide_id,sample_coords,args,thumbnail_size=1000):
     y_values=y_values.cpu()
     plt.scatter(x_values,y_values,s=6)
     plt.axis('off')
-    plt.savefig('../mount_outputs/sampling_maps/{}.png'.format(slide_id), dpi=300)
+    if correct:
+        correct_str="correct"
+    else:
+        correct_str="incorrect"
+    plt.savefig('../mount_outputs/sampling_maps/{}_{}.png'.format(slide_id,correct_str), dpi=300)
     plt.close()
  
 
-def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_iteration=False,thumbnail_size=1000):
+def plot_sampling_gif(slide_id,sample_coords,args,iteration,correct=False,slide=None,final_iteration=False,thumbnail_size=1000):
     if slide==None:
         slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
     
@@ -224,7 +228,11 @@ def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_ite
     if final_iteration:
         print("Plotting gif for slide {} over {} iterations".format(slide_id,iteration+1))
         fp_in = "../mount_outputs/sampling_maps/{}_iter*.png".format(slide_id)
-        fp_out = "../mount_outputs/sampling_maps/{}.gif".format(slide_id)
+        if correct:
+            correct_str="correct"
+        else:
+            correct_str="incorrect"
+        fp_out = "../mount_outputs/sampling_maps/{}_{}.gif".format(slide_id,correct_str)
         imgs = (Image.open(f) for f in sorted(glob.glob(fp_in)))
         img = next(imgs)  # extract first image from iterator
         img.save(fp=fp_out, format='GIF', append_images=imgs,save_all=True, duration=200, loop=1)
@@ -232,7 +240,7 @@ def plot_sampling_gif(slide_id,sample_coords,args,iteration,slide=None,final_ite
     return slide
 
 
-def plot_weighting(slide_id,coords,weights,args,thumbnail_size=3000):
+def plot_weighting(slide_id,coords,weights,args,correct=False,thumbnail_size=3000):
     print("Plotting final weights CHECK THESE ARE ACTUALLY FINAL for slide {}.".format(slide_id))
 
     slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
@@ -256,11 +264,15 @@ def plot_weighting(slide_id,coords,weights,args,thumbnail_size=3000):
     plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, alpha=0.4, marker="s",edgecolors='none')
     plt.colorbar()
     plt.axis('off')
-    plt.savefig('../mount_outputs/weight_maps/{}_{}.png'.format(slide_id,args.sampling_type), dpi=1000)
+    if correct:
+        correct_str="correct"
+    else:
+        correct_str="incorrect"
+    plt.savefig('../mount_outputs/weight_maps/{}_{}_{}.png'.format(slide_id,args.sampling_type,correct_str), dpi=1000)
     plt.close()
 
 
-def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slide=None,x_coords=None,y_coords=None,final_iteration=False,thumbnail_size=3000):
+def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,correct=False,slide=None,x_coords=None,y_coords=None,final_iteration=False,thumbnail_size=3000):
     if slide==None:
         slide = openslide.open_slide(args.data_slide_dir+"/"+slide_id+".svs")
         x_coords, y_coords = coords.T
@@ -300,7 +312,11 @@ def plot_weighting_gif(slide_id,sample_coords,coords,weights,args,iteration,slid
     if final_iteration:
         print("Plotting weight gif for slide {} over {} iterations".format(slide_id,iteration+1))
         fp_in = "../mount_outputs/weight_maps/gifs/{}_{}_iter*.png".format(slide_id,args.sampling_type)
-        fp_out = "../mount_outputs/weight_maps/{}_{}.gif".format(slide_id,args.sampling_type)
+        if correct:
+            correct_str="correct"
+        else:
+            correct_str="incorrect"
+        fp_out = "../mount_outputs/weight_maps/{}_{}_{}.gif".format(slide_id,args.sampling_type,correct_str)
         imgs = (Image.open(f) for f in sorted(glob.glob(fp_in)))
         img = next(imgs)  # extract first image from iterator
         img.save(fp=fp_out, format='GIF', append_images=imgs,save_all=True, duration=500, loop=1)

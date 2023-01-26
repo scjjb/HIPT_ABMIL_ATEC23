@@ -22,6 +22,8 @@ from ray import tune
 from ray.air.config import RunConfig
 import ray
 
+from streamlit import legacy_caching as caching
+
 # Evaluation settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
 parser.add_argument('--csv_path', type=str, default=None, help='path to dataset_csv file')
@@ -258,6 +260,7 @@ def main():
     
 if __name__ == "__main__":
     if args.profile:
+        caching.clear_cache()
         profiler = cProfile.Profile()
         profiler.enable()
         main()

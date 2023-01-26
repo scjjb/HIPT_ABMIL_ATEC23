@@ -45,7 +45,10 @@ def initiate_model(args, ckpt_path):
     #if args.cpu_only:
     #    ckpt = torch.load(ckpt_path,map_location=torch.device('cpu'))
     #else:
-    ckpt = torch.load(ckpt_path)
+    if args.cpu_only:
+        ckpt = torch.load(ckpt_path,map_location=torch.device('cpu'))
+    else:
+        ckpt=torch.load(ckpt_path)
     ckpt_clean = {}
     for key in ckpt.keys():
         if 'instance_loss_fn' in key:
@@ -452,15 +455,6 @@ def summary_sampling(model, dataset, args):
                 all_sample_idxs=all_sample_idxs+sample_idxs
                 sample_idxs=sample_idxs+best_sample_idxs
     
-            if args.plot_sampling:
-                plot_sampling(slide_id,coords[sample_idxs],args)
-            if args.plot_sampling_gif:
-                plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,slide,final_iteration=True)
-            if args.plot_weighting:
-                plot_weighting(slide_id,coords,sampling_weights,args)
-            if args.plot_weighting_gif:
-                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,slide,x_coords,y_coords,final_iteration=True)
-
             if args.eval_features:
                 sampled_data.update_sample(sample_idxs)
                 loader = DataLoader(dataset=sampled_data, batch_size=args.batch_size, **kwargs, collate_fn=collate_features)
@@ -477,12 +471,21 @@ def summary_sampling(model, dataset, args):
 
             acc_logger.log(Y_hat, label)
             probs = Y_prob.cpu().numpy()
-        
+            
             #all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
             all_probs.append(probs[0])
             all_labels_byrep.append(label)
             all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
             
+            if args.plot_sampling:
+                plot_sampling(slide_id,coords[sample_idxs],args,Y_hat==label)
+            if args.plot_sampling_gif:
+                plot_sampling_gif(slide_id,coords[sample_idxs],args,iteration_count+1,Y_hat==label,slide,final_iteration=True)
+            if args.plot_weighting:
+                plot_weighting(slide_id,coords,sampling_weights,args,Y_hat==label)
+            if args.plot_weighting_gif:
+                plot_weighting_gif(slide_id,coords[all_sample_idxs],coords,sampling_weights,args,iteration_count+1,Y_hat==label,slide,x_coords,y_coords,final_iteration=True)
+
 
             if args.eval_features:
                 patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'prob': probs, 'label': float(label)}})
