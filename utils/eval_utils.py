@@ -87,7 +87,7 @@ def eval(config, dataset, args, ckpt_path):
     if args.tuning:
         args.weight_smoothing=config["weight_smoothing"]
         args.resampling_iterations=config["resampling_iterations"]
-        args.samples_per_iteration=int(1200/(config["resampling_iterations"]))
+        args.samples_per_iteration=int(640/(config["resampling_iterations"]))
         args.sampling_neighbors=config["sampling_neighbors"]
         args.sampling_random=config["sampling_random"]
         args.sampling_random_delta=config["sampling_random_delta"]
@@ -474,7 +474,7 @@ def summary_sampling(model, dataset, args):
             
             #all_probs[(batch_idx*same_slide_repeats)+repeat_no] = probs
             all_probs.append(probs[0])
-            all_labels_byrep.append(label)
+            all_labels_byrep.append(label[0].item())
             all_preds[(batch_idx*same_slide_repeats)+repeat_no] = Y_hat.item()
             
             if args.plot_sampling:
