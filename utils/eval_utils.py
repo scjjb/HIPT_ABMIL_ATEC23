@@ -308,12 +308,23 @@ def summary_sampling(model, dataset, args):
                         data_sample=data[sample_idxs].to(device)
                     
                 with torch.no_grad():
-                    logits, Y_prob, Y_hat, _, _ = model(data_sample)
+                    logits, Y_prob, Y_hat, raw_attention, _ = model(data_sample)
                 Y_hats.append(Y_hat)
                 acc_logger.log(Y_hat, label)
                 probs = Y_prob.cpu().numpy()
                  
                 all_probs.append(probs[0])
+                
+
+                if args.plot_weighting:
+                    attention_scores=raw_attention[0]
+                    #attention_scores=torch.nn.functional.softmax(raw_attention,dim=1)[0]
+                    new_attentions = np.repeat(min(attention_scores.cpu()),len(coords))
+                    for i in range(len(sample_idxs)):
+                        new_attentions[sample_idxs[i]]=attention_scores[i]
+                        #new_attentions[sample_idxs[i]]=pow(attention_scores[i],args.weight_smoothing)
+                    plot_weighting(slide_id,coords,new_attentions,args,Y_hat==label)
+                
                 if args.eval_features:
                     all_labels_byrep.append(label)
                 else:

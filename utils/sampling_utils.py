@@ -259,16 +259,27 @@ def plot_weighting(slide_id,coords,weights,args,correct=False,thumbnail_size=300
     ## make it more transparent for lower values
     #cmap = colors.LinearSegmentedColormap.from_list(
     #    'incr_alpha', [(0, (*colors.to_rgb(c),0)), (1, c2)])
-    cmap='coolwarm'
-
-    plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, alpha=0.4, marker="s",edgecolors='none')
-    plt.colorbar()
+    #cmap='coolwarm'
+    cmap='jet'
+    cmap = plt.get_cmap(cmap)
+    #plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=1.6685,alpha=0.6,marker="s",edgecolors='none',vmin=0,vmax=0.8)
+    ## this one works best with color bar:
+    #plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=1.6685,alpha=0.6,marker="s",edgecolors='none')
+    ## this one works best without color bar:
+    plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2.5,alpha=0.6,marker="s",edgecolors='none')
+    
+    #plt.scatter(x_values,y_values,c=weights,cmap=cmap,s=2, alpha=0.4, marker="s",edgecolors='none')
+    #plt.colorbar()
     plt.axis('off')
     if correct:
         correct_str="correct"
     else:
         correct_str="incorrect"
-    plt.savefig('../mount_outputs/weight_maps/{}_{}_{}.png'.format(slide_id,args.sampling_type,correct_str), dpi=1000)
+    if args.fully_random:
+        random_str="random"
+    else:
+        random_str="dras"
+    plt.savefig('../mount_outputs/weight_maps/{}_{}_{}_{}.png'.format(slide_id,args.sampling_type,correct_str,random_str), dpi=500,bbox_inches='tight')
     plt.close()
 
 
