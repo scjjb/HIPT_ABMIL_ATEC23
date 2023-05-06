@@ -1,7 +1,7 @@
 import pandas as pd
 import argparse
 import os
-parser = argparse.ArgumentParser(description='Script to remove augmentations from training and validation folds')
+parser = argparse.ArgumentParser(description='Script to remove augmentations from validation and test folds')
 parser.add_argument('--split_name', type=str, default=None)
 parser.add_argument('--k', type=int, default=10, help='number of folds (default: 10)')
 args = parser.parse_args()

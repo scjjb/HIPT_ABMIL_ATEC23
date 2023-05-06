@@ -334,10 +334,15 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 self.data_dir = data_dir
                 self.coords_path = coords_path
                 self.use_h5 = False
+                self.use_perturbs = False
 
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
                 print("use_h5 is currently not set to use h5 but to instead get coords from pt")
+
+        def perturb_features(self, toggle):
+                self.use_perturbs = toggle
+                print("perturbing features")
 
         def __getitem__(self, idx):
                 slide_id = self.slide_data['slide_id'][idx]
@@ -353,6 +358,9 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                                 full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
                                 #print("loading :",full_path)
                                 features = torch.load(full_path)
+                                if self.use_perturbs:
+                                    noise = torch.randn_like(features) * 0.1
+                                    features = features + noise
                                 #print("loaded :",full_path)
                                 return features, label
                         
@@ -395,12 +403,16 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                             features = hdf5_file['features'][:]
                             coords = hdf5_file['coords'][:]
                         features = torch.from_numpy(features)
+                        if self.use_perturbs:
+                            noise = torch.randn_like(features) * 0.1
+                            features = features + noise
                     return features, label, coords, slide_id
 
 
 class Generic_Split(Generic_MIL_Dataset):
         def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2):
                 self.use_h5 = False
+                self.use_perturbs = False
                 self.slide_data = slide_data
                 self.data_dir = data_dir
                 self.coords_path = coords_path
@@ -412,5 +424,4 @@ class Generic_Split(Generic_MIL_Dataset):
         def __len__(self):
                 return len(self.slide_data)
                 
-
 

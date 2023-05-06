@@ -13,7 +13,7 @@ parser.add_argument('--seed', type=int, default=1,
 parser.add_argument('--unique_tests', default=False, action='store_true',help='ensure all test sets are unique')
 parser.add_argument('--k', type=int, default=10,
                     help='number of splits (default: 10)')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_998','custom_556','custom_714','custom_912_aug','custom_20','nsclc'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal', 'task_2_tumor_subtyping','custom','custom_998','custom_556','custom_714','custom_912_aug','custom_20','nsclc','canadian','treatment'])
 parser.add_argument('--val_frac', type=float, default= 0.1,
                     help='fraction of labels for validation (default: 0.1)')
 parser.add_argument('--test_frac', type=float, default= 0.1,
@@ -69,6 +69,29 @@ elif args.task == 'custom_714': ## Smaller set after pathologist review of label
                             seed = args.seed,
                             print_info = True,
                             label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4},
+                            patient_strat= True,
+                            ignore=[])
+
+
+
+elif args.task == 'canadian': 
+    args.n_classes=5
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_canadian.csv',
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'high_grade':0,'low_grade':1,'clear_cell':2,'endometrioid':3,'mucinous':4},
+                            patient_strat= True,
+                            ignore=[])
+
+
+elif args.task == 'treatment': 
+    args.n_classes=2
+    dataset =  Generic_WSI_Classification_Dataset(csv_path = 'dataset_csv/set_treatment.csv',
+                            shuffle = False,
+                            seed = args.seed,
+                            print_info = True,
+                            label_dict = {'invalid':0,'effective':1},
                             patient_strat= True,
                             ignore=[])
 

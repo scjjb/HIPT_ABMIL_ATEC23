@@ -121,6 +121,8 @@ def main():
         seed_torch(args.seed)
         train_dataset, val_dataset, test_dataset = dataset.return_splits(from_id=False, 
                 csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
+        if args.perturb:
+            train_dataset.perturb_features(True)
         datasets = (train_dataset, val_dataset, test_dataset)
 
         ##class_counts to be used in balanced cross entropy if enabled
@@ -212,12 +214,13 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
                     help='type of model (default: clam_sb, clam w/ single attention branch)')
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
-parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
-parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc'])
+parser.add_argument('--model_size', type=str, choices=['tiny','small', 'big'], default='small', help='size of model, does not affect mil')
+parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc','treatment'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
 parser.add_argument('--csv_path',type=str,default=None,help='path to dataset_csv file')
+parser.add_argument('--perturb', action='store_true', default=False, help='perturb features during training')
 
 ## sampling options
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')
@@ -309,6 +312,10 @@ if args.task == 'ovarian_5class':
 elif args.task == 'ovarian_1vsall':
     args.n_classes=2
     args.label_dict = {'high_grade':0,'low_grade':1,'clear_cell':1,'endometrioid':1,'mucinous':1}
+
+elif args.task =='treatment':
+    args.n_classes=2
+    args.label_dict = {'invalid':0,'effective':1}
 
 elif args.task == 'nsclc':
     args.n_classes=2

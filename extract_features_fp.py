@@ -18,6 +18,10 @@ from PIL import Image
 import h5py
 import openslide
 import timm
+import cv2
+import torchstain
+import torchvision
+import random
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print("torch device:", device, "\n")
 
@@ -36,7 +40,97 @@ def compute_w_loader(file_path, output_path, wsi, model,
                 target_patch_size: custom defined, rescaled image size before embedding
         """
         
-        if args.use_transforms=='all':
+        if args.use_transforms=='macenko':
+            class MacenkoNormalisation:
+                def __init__(self):
+                    self.normalizer = torchstain.normalizers.MacenkoNormalizer(backend='torch')
+                    self.failures=0
+
+                def __call__(self,image):
+                    #print(image)
+                    #print("input shape: ",image.shape)
+                    #torchvision.utils.save_image(image/255,"../mount_outputs/notnormalised.jpg")
+                    try:
+                        norm, _, _ = self.normalizer.normalize(I=image, stains=False)
+                        norm = norm.permute(2, 0, 1)/255
+                    except:
+                        norm=image/255
+                        self.failures=self.failures+1
+                        print("failed patches: ",self.failures)
+                        #torchvision.utils.save_image(norm,"../mount_outputs/macenkofailures/notnormalised{}.jpg".format(random.randint(0,1000000)))
+                    #print("input shape: ",image.shape)
+                    #print("output shape: ",norm.shape)
+                    #im = Image.fromarray((norm.numpy()).astype(np.uint8))
+                    #norm = norm.permute(2, 0, 1)
+                    #print("output shape: ",norm.shape)
+                    #print(norm)
+                    #norm=norm/255
+                    #image=image/255
+                    #print(norm)
+                    #print(image)
+                    
+                    #torchvision.utils.save_image(image,"../mount_outputs/notnormalised.jpg")
+                    #im.save("../mount_outputs/normalised.jpg")
+                    #assert 1==2, "testing"
+                    return norm
+
+
+
+            class WrongMacenkoNormalisation:
+                def __init__(self, alpha=1, beta=0.15, phi=1e-6):
+                    self.alpha = alpha
+                    self.beta = beta
+                    self.phi = phi
+
+                def __call__(self, image):
+                    image_np = np.transpose(np.array(image),(1,2,0))
+                    im = Image.fromarray((image_np * 255).astype(np.uint8))
+                    im.save("../mount_outputs/notnormalised.jpg")
+                    # Convert image to LAB color space
+                    lab_image = cv2.cvtColor(image_np, cv2.COLOR_RGB2LAB)
+                    # Split the channels of the LAB image
+                    L, A, B = cv2.split(lab_image)
+                    # Normalize the L channel
+                    L = L.astype(np.float32) / 255.0
+                    # Calculate mean and standard deviation of L channel
+                    mean_L = np.mean(L)
+                    std_L = np.std(L)
+                    # Set lower and upper bounds for pixel intensities
+                    min_intensity = mean_L - (2.0 * std_L)
+                    max_intensity = mean_L + (2.0 * std_L)
+                    # Clip pixel intensities to the bounds
+                    L_clipped = np.clip(L, min_intensity, max_intensity)
+                    # Apply Macenko normalization
+                    f = np.vectorize(lambda x: self.alpha * (x - self.beta) / (1 - self.beta * np.exp(-1 * self.alpha * (x - self.beta))) + self.phi)
+                    L_normalized = f(L_clipped)
+                    # Convert normalized L channel back to uint8
+                    L_normalized = (L_normalized * 255.0).astype(np.uint8)
+                    A=A.astype(np.uint8)
+                    B=B.astype(np.uint8)
+                    # Combine normalized L channel and original A and B channels
+                    lab_image_normalized = cv2.merge((L_normalized, A, B))
+                    # Convert LAB image back to RGB
+                    rgb_image_normalized = cv2.cvtColor(lab_image_normalized, cv2.COLOR_LAB2RGB)
+                    # Convert RGB image to PyTorch tensor
+                    tensor_image_normalized = torch.from_numpy(np.transpose(rgb_image_normalized, (2, 0, 1)))
+                    #im = Image.fromarray(np.array(image_np))
+                    #im.save("../mount_outputs/notnormalised.jpg")
+                    #cv2.imwrite("../mount_outputs/notnormalised.jpg", image_np)
+                    cv2.imwrite("../mount_outputs/normalised.jpg", np.transpose(rgb_image_normalized, (0, 1, 2)))
+                    assert 1==2, "This is clearly wrong both methodologically and visually"
+                    return tensor_image_normalized.float()
+
+            
+            
+            t = transforms.Compose(
+                [transforms.ToTensor(),
+                transforms.Lambda(lambda x: x*255),
+                MacenkoNormalisation()])
+            dataset = Whole_Slide_Bag_FP(file_path=file_path, wsi=wsi, custom_transforms=t, pretrained=pretrained,
+                custom_downsample=custom_downsample, target_patch_size=target_patch_size)
+
+
+        elif args.use_transforms=='all':
             t = transforms.Compose(
                 [transforms.ToTensor(),
                 transforms.RandomHorizontalFlip(p=0.5),
@@ -103,7 +197,7 @@ parser.add_argument('--custom_downsample', type=int, default=1)
 parser.add_argument('--target_patch_size', type=int, default=-1)
 parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
 parser.add_argument('--model_type',type=str,choices=['resnet50','levit_128s'],default='resnet50')
-parser.add_argument('--use_transforms',type=str,choices=['all','spatial','none'],default='none')
+parser.add_argument('--use_transforms',type=str,choices=['all','spatial','macenko','none'],default='none')
 args = parser.parse_args()
 
 
@@ -142,7 +236,12 @@ if __name__ == '__main__':
                 print('\nprogress: {}/{}'.format(bag_candidate_idx, total))
                 print(slide_id)
 
-                if not args.no_auto_skip and slide_id+'.pt' in dest_files:
+                if args.use_transforms == 'all':
+                    if not args.no_auto_skip and slide_id+'aug1.pt' in dest_files:
+                        print('skipped {}'.format(slide_id))
+                        continue
+                else:
+                    if not args.no_auto_skip and slide_id+'.pt' in dest_files:
                         print('skipped {}'.format(slide_id))
                         continue 
 
@@ -161,5 +260,7 @@ if __name__ == '__main__':
                 print('coordinates size: ', file['coords'].shape)
                 features = torch.from_numpy(features)
                 bag_base, _ = os.path.splitext(bag_name)
+                if args.use_transforms == 'all':
+                    bag_base=bag_base+"aug1"
                 torch.save(features, os.path.join(args.feat_dir, 'pt_files', bag_base+'.pt'))
 
