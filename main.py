@@ -123,6 +123,8 @@ def main():
                 csv_path='{}/splits_{}.csv'.format(args.split_dir, i))
         if args.perturb:
             train_dataset.perturb_features(True)
+        if args.use_augs:
+            train_dataset.use_augmentations(True)
         datasets = (train_dataset, val_dataset, test_dataset)
 
         ##class_counts to be used in balanced cross entropy if enabled
@@ -214,13 +216,17 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
                     help='type of model (default: clam_sb, clam w/ single attention branch)')
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
-parser.add_argument('--model_size', type=str, choices=['tiny','small', 'big'], default='small', help='size of model, does not affect mil')
+parser.add_argument('--model_size', type=str, choices=['tinier','tiny','small', 'big'], default='small', help='size of model, does not affect mil')
 parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc','treatment'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
 parser.add_argument('--csv_path',type=str,default=None,help='path to dataset_csv file')
 parser.add_argument('--perturb', action='store_true', default=False, help='perturb features during training')
+parser.add_argument('--perturb_variance', type=float, default=0.1, help='variance of feature perturbations')
+parser.add_argument('--use_augs', action='store_true', default=False, help='use augmented versions of the training slides during training. The features to be saved in the same place as the non-augmented features, with the addition of "aug0", "aug1" etc. before the .pt in each filename')
+parser.add_argument('--number_of_augs', type=int, default=1, help='number of augmented versions of each real image that are available')
+
 
 ## sampling options
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')
@@ -326,6 +332,8 @@ else:
 
 dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
                             data_dir= os.path.join(args.data_root_dir, args.features_folder),
+                            perturb_variance=args.perturb_variance,
+                            number_of_augs=args.number_of_augs,
                             coords_path = args.coords_path,
                             shuffle = False, 
                             seed = args.seed, 

@@ -8,6 +8,7 @@ import re
 import pdb
 import pickle
 from scipy import stats
+import random
 
 from torch.utils.data import Dataset
 import h5py
@@ -195,7 +196,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 if len(split) > 0:
                         mask = self.slide_data['slide_id'].isin(split.tolist())
                         df_slice = self.slide_data[mask].reset_index(drop=True)
-                        split = Generic_Split(df_slice, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
+                        split = Generic_Split(df_slice, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes,perturb_variance=self.perturb_variance,number_of_augs=self.number_of_augs)
                 else:
                         split = None
                 
@@ -211,7 +212,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 if len(split) > 0:
                         mask = self.slide_data['slide_id'].isin(merged_split)
                         df_slice = self.slide_data[mask].reset_index(drop=True)
-                        split = Generic_Split(df_slice, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
+                        split = Generic_Split(df_slice, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes,perturb_variance=self.perturb_variance,number_of_augs=self.number_of_augs)
                 else:
                         split = None
                 
@@ -224,7 +225,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 if from_id:
                         if len(self.train_ids) > 0:
                                 train_data = self.slide_data.loc[self.train_ids].reset_index(drop=True)
-                                train_split = Generic_Split(train_data, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes)
+                                train_split = Generic_Split(train_data, data_dir=self.data_dir, coords_path=self.coords_path, num_classes=self.num_classes,perturb_variance=self.perturb_variance,number_of_augs=self.number_of_augs)
 
                         else:
                                 train_split = None
@@ -328,6 +329,8 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
         def __init__(self,
                 data_dir, 
                 coords_path,
+                perturb_variance=0.1,
+                number_of_augs=1,
                 **kwargs):
         
                 super(Generic_MIL_Dataset, self).__init__(**kwargs)
@@ -335,6 +338,9 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 self.coords_path = coords_path
                 self.use_h5 = False
                 self.use_perturbs = False
+                self.use_augs = False
+                self.perturb_variance = perturb_variance
+                self.number_of_augs = number_of_augs
 
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
@@ -343,6 +349,10 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
         def perturb_features(self, toggle):
                 self.use_perturbs = toggle
                 print("perturbing features")
+
+        def use_augmentations(self, toggle):
+                self.use_augs = toggle
+                print("using augmentations")
 
         def __getitem__(self, idx):
                 slide_id = self.slide_data['slide_id'][idx]
@@ -353,14 +363,25 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 else:
                         data_dir = self.data_dir
 
+                if self.use_augs:
+                    assert not self.use_h5, "augmentations not currently setup with h5 files, only pt files"
+                    ## aug numbers start at 0, -1 is the original with no augmentation 
+                    aug_number = random.randint(-1,self.number_of_augs-1)
+                    if aug_number>-1:
+                        slide_id=slide_id+"aug{}".format(aug_number)
+                    #print(self.number_of_augs)
+                    #print(slide_id)
                 if not self.use_h5:
                         if self.data_dir:
                                 full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
                                 #print("loading :",full_path)
                                 features = torch.load(full_path)
                                 if self.use_perturbs:
-                                    noise = torch.randn_like(features) * 0.1
+                                    #print("features",features)
+                                    #print("variance:",self.perturb_variance)
+                                    noise = torch.randn_like(features)*self.perturb_variance
                                     features = features + noise
+                                    #print("perturbed",features)
                                 #print("loaded :",full_path)
                                 return features, label
                         
@@ -410,9 +431,12 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
 
 
 class Generic_Split(Generic_MIL_Dataset):
-        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2):
+        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2, perturb_variance=0.1, number_of_augs = 1):
                 self.use_h5 = False
                 self.use_perturbs = False
+                self.use_augs = False
+                self.perturb_variance = perturb_variance
+                self.number_of_augs = number_of_augs
                 self.slide_data = slide_data
                 self.data_dir = data_dir
                 self.coords_path = coords_path
