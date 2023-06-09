@@ -21,12 +21,14 @@ def segment(WSI_object, seg_params = None, filter_params = None, mask_file = Non
         ### Start Seg Timer
         start_time = time.time()
         # Use segmentation file
-        if mask_file is not None:
-                WSI_object.initSegmentation(mask_file)
+        #if mask_file is not None:
+        #        WSI_object.initSegmentation(mask_file)
         # Segment       
-        else:
-                WSI_object.segmentTissue(**seg_params, filter_params=filter_params)
+        #else:
+        #        WSI_object.segmentTissue(**seg_params, filter_params=filter_params)
 
+        WSI_object.loadSegmentation()
+        
         ### Stop Seg Timers
         seg_time_elapsed = time.time() - start_time   
         return WSI_object, seg_time_elapsed

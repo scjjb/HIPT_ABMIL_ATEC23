@@ -43,6 +43,8 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 patient_strat=False,
                 label_col = None,
                 patient_voting = 'max',
+                perturb_variance=0.0,
+                number_of_augs=0
                 ):
                 """
                 Args:
@@ -61,6 +63,8 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 self.train_ids, self.val_ids, self.test_ids  = (None, None, None)
                 self.data_dir = None
                 self.coords_path = coords_path
+                self.perturb_variance = perturb_variance
+                self.number_of_augs = number_of_augs
                 if not label_col:
                         label_col = 'label'
                 self.label_col = label_col
@@ -68,7 +72,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 slide_data = pd.read_csv(csv_path)
                 slide_data = self.filter_df(slide_data, filter_dict)
                 slide_data = self.df_prep(slide_data, self.label_dict, ignore, self.label_col)
-
+                
                 ###shuffle data
                 if shuffle:
                         np.random.seed(seed)

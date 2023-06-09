@@ -88,6 +88,13 @@ class WholeSlideImage(object):
         asset_dict = {'holes': self.holes_tissue, 'tissue': self.contours_tissue}
         save_pkl(mask_file, asset_dict)
 
+    def loadSegmentation(self):
+        file_path='../../mount_outputs/DMMN_outputs'
+        full_file_path=file_path+"/"+self.name+".svs_data/closed_contours.npy"
+        contours = np.load(full_file_path, allow_pickle=True)
+        self.contours_tissue = contours
+        self.holes_tissue = [[] for contour in contours]
+    
     def segmentTissue(self, seg_level=0, sthresh=20, sthresh_up = 255, mthresh=7, close = 0, use_otsu=False, 
                             filter_params={'a_t':100}, ref_patch_size=512, exclude_ids=[], keep_ids=[]):
         """

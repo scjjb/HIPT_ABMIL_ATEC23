@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import torch
 import torch.nn.functional as F
+import torchvision
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50','resnet50_histo', 'resnet101',
            'resnet152']
@@ -107,6 +108,32 @@ class ResNet_Baseline(nn.Module):
         x = x.view(x.size(0), -1)
 
         return x
+
+def resnet18_baseline(pretrained=False,dataset='ImageNet'):
+    """ResNet18
+    Histo pretraining comes from https://github.com/ozanciga/self-supervised-histopathology
+    """
+    if dataset=='ImageNet':
+        model = torchvision.models.__dict__['resnet18'](pretrained=pretrained)
+    else:
+        model = torchvision.models.__dict__['resnet18'](pretrained=False)
+    if pretrained and dataset=="Histo":
+        MODEL_PATH="../../mount_outputs/tenpercent_resnet18.ckpt"
+        state = torch.load(MODEL_PATH, map_location='cuda')
+        state_dict = state['state_dict']
+        for key in list(state_dict.keys()):
+                state_dict[key.replace('model.', '').replace('resnet.', '')] = state_dict.pop(key)
+        model_dict = model.state_dict()
+        weights = {k: v for k, v in state_dict.items() if k in model_dict}
+        if weights == {}:
+            print('No weight could be loaded..')
+        else:
+            print('Loading histo-pretrained ResNet18')
+        model_dict.update(weights)
+        model.load_state_dict(model_dict)
+        model.fc = torch.nn.Sequential()
+    return model
+
 
 def resnet50_baseline(pretrained=False,dataset='ImageNet'):
     """Constructs a Modified ResNet-50 model.

@@ -10,7 +10,7 @@ from datasets.dataset_h5 import Dataset_All_Bags, Whole_Slide_Bag_FP
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from models.resnet_custom import resnet50_baseline
+from models.resnet_custom import resnet18_baseline,resnet50_baseline
 import argparse
 from utils.utils import print_network, collate_features
 from utils.file_utils import save_hdf5
@@ -157,7 +157,9 @@ def compute_w_loader(file_path, output_path, wsi, model,
         dataset.update_sample(range(len(dataset)))
         x, y = dataset[0]
         
-        if args.model_type=='resnet50':
+        if args.model_type=='resnet18':
+            kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}
+        elif args.model_type=='resnet50':
             kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}
         elif args.model_type=='levit_128s':
             kwargs = {'num_workers': 16, 'pin_memory': True} if device.type == "cuda" else {}
@@ -196,7 +198,7 @@ parser.add_argument('--no_auto_skip', default=False, action='store_true')
 parser.add_argument('--custom_downsample', type=int, default=1)
 parser.add_argument('--target_patch_size', type=int, default=-1)
 parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
-parser.add_argument('--model_type',type=str,choices=['resnet50','levit_128s'],default='resnet50')
+parser.add_argument('--model_type',type=str,choices=['resnet18','resnet50','levit_128s'],default='resnet50')
 parser.add_argument('--use_transforms',type=str,choices=['all','spatial','macenko','none'],default='none')
 args = parser.parse_args()
 
@@ -216,7 +218,9 @@ if __name__ == '__main__':
         dest_files = os.listdir(os.path.join(args.feat_dir, 'pt_files'))
 
         print('loading {} pretrained model'.format(args.pretraining_dataset))
-        if args.model_type=='resnet50':
+        if args.model_type=='resnet18':
+            model = resnet18_baseline(pretrained=True,dataset=args.pretraining_dataset)
+        elif args.model_type=='resnet50':
             model = resnet50_baseline(pretrained=True,dataset=args.pretraining_dataset)
         elif args.model_type=='levit_128s':
             model=timm.create_model('levit_256',pretrained=True, num_classes=0)    
