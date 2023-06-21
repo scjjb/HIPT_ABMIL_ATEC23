@@ -177,7 +177,14 @@ def train(datasets, cur, class_counts, args):
     print('Done!')
     
     print('\nInit Loaders...', end=' ')
-    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
+    if args.extract_features:
+        train_split.extract_features(True)
+        train_split.initialise_model(args.model_type, args.pretraining_dataset)
+    if args.augment_features:
+        train_split.augment_features(True)
+        train_split.set_transforms()
+
+    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample, max_patches_per_slide = args.max_patches_per_slide)
     val_loader = get_split_loader(val_split,  testing = args.testing)
     test_loader = get_split_loader(test_split, testing = args.testing)
     print('Done!')

@@ -227,6 +227,10 @@ parser.add_argument('--perturb_variance', type=float, default=0.1, help='varianc
 parser.add_argument('--use_augs', action='store_true', default=False, help='use augmented versions of the training slides during training. The features to be saved in the same place as the non-augmented features, with the addition of "aug0", "aug1" etc. before the .pt in each filename')
 parser.add_argument('--number_of_augs', type=int, default=1, help='number of augmented versions of each real image that are available')
 
+## feature extraction options
+parser.add_argument('--extract_features', action='store_true', default=False, help='extract features during training')
+parser.add_argument('--augment_features', action='store_true', default=False, help='if extracting features, whether to apply augmentations before feature extraction')
+parser.add_argument('--max_patches_per_slide', type=int, default=100, help='number of patches to use per slide each iteration when extracting features during training')
 
 ## sampling options
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')

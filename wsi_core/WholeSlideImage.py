@@ -89,7 +89,7 @@ class WholeSlideImage(object):
         save_pkl(mask_file, asset_dict)
 
     def loadSegmentation(self):
-        file_path='../../mount_outputs/DMMN_outputs'
+        file_path='../../mount_outputs/DMMN_outputs_reinhard'
         full_file_path=file_path+"/"+self.name+".svs_data/closed_contours.npy"
         contours = np.load(full_file_path, allow_pickle=True)
         self.contours_tissue = contours

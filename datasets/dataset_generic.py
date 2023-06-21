@@ -15,6 +15,12 @@ import h5py
 
 from utils.utils import generate_split, nth
 
+from models.resnet_custom import resnet18_baseline,resnet50_baseline
+from torchvision import transforms
+from torch.utils.data import DataLoader
+import openslide
+import timm
+
 def save_splits(split_datasets, column_keys, filename, boolean_style=False):
         splits = [split_datasets[i].slide_data['slide_id'] for i in range(len(split_datasets))]
         if not boolean_style:
@@ -335,20 +341,34 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 coords_path,
                 perturb_variance=0.1,
                 number_of_augs=1,
+                max_patches_per_slide=100,
                 **kwargs):
         
                 super(Generic_MIL_Dataset, self).__init__(**kwargs)
                 self.data_dir = data_dir
                 self.coords_path = coords_path
                 self.use_h5 = False
+                self.extract_features = False
+                self.augment_features = False
+                self.transforms = None
+                self.max_patches_per_slide = max_patches_per_slide
                 self.use_perturbs = False
                 self.use_augs = False
                 self.perturb_variance = perturb_variance
                 self.number_of_augs = number_of_augs
+                self.model = None
 
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
                 print("use_h5 is currently not set to use h5 but to instead get coords from pt")
+
+        def extract_features(self, toggle):
+                self.extract_features = toggle
+                print("extracting features from {} patches per slide".format(self.max_patches_per_slide))
+
+        def augment_features(self, toggle):
+                self.extract_features = toggle
+                print("augmenting features")
 
         def perturb_features(self, toggle):
                 self.use_perturbs = toggle
@@ -357,6 +377,30 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
         def use_augmentations(self, toggle):
                 self.use_augs = toggle
                 print("using augmentations")
+
+        def set_transforms(self):
+                if self.use_augs:
+                    self.transforms = transforms.Compose(
+                                            [transforms.ToTensor(),
+                                            transforms.RandomHorizontalFlip(p=0.5),
+                                            transforms.RandomVerticalFlip(p=0.5),
+                                            transforms.RandomAffine(degrees=90,translate=(0.1,0.1), scale=(0.9,1.1),shear=0.1),
+                                            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+                                            ])
+                else:
+                    self.transforms = transforms.Compose(
+                                            [transforms.ToTensor(),
+                                            ])
+
+        def initialise_model(self, model_type, pretraining_dataset):
+                print('loading {} pretrained model {}'.format(pretraining_dataset, model_type))
+                if model_type=='resnet18':
+                    self.model = resnet18_baseline(pretrained=True,dataset=pretraining_dataset)
+                elif model_type=='resnet50':
+                    self.model = resnet50_baseline(pretrained=True,dataset=pretraining_dataset)    
+                elif model_type=='levit_128s'
+                    self.model=timm.create_model('levit_256',pretrained=True, num_classes=0)
+                self.model.to(device)
 
         def __getitem__(self, idx):
                 slide_id = self.slide_data['slide_id'][idx]
@@ -367,6 +411,32 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 else:
                         data_dir = self.data_dir
 
+                if self.extract_features:
+                    file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
+                    wsi = openslide.open_slide(slide_file_path)
+                    dataset = Whole_Slide_Bag_FP(file_path=file_path, wsi=wsi, custom_transforms=self.transforms, pretrained=pretrained,custom_downsample=args.custom_downsample, target_patch_size=args.target_patch_size, max_patches_per_slide = max_patches_per_slide)
+                    dataset.update_sample(range(len(dataset)))
+                    x, y = dataset[0]
+                    if args.model_type=='resnet18':
+                        kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}
+                    elif args.model_type=='resnet50':
+                        kwargs = {'num_workers': 4, 'pin_memory': True} if device.type == "cuda" else {}
+                    elif args.model_type=='levit_128s':
+                        kwargs = {'num_workers': 16, 'pin_memory': True} if device.type == "cuda" else {}
+                        tfms=torch.nn.Sequential(transforms.CenterCrop(224))
+                    loader = DataLoader(dataset=dataset, batch_size=batch_size, **kwargs, collate_fn=collate_features)
+                    all_features=[]
+                    for count, (batch, coords) in enumerate(loader):
+                        with torch.no_grad():   
+                            batch = batch.to(device, non_blocking=True)
+                            if args.model_type=='levit_128s':
+                                batch=tfms(batch)
+                            features = model(batch)
+                            features = features.cpu().numpy()
+                            all_features = all_features+features
+                    return all_features, label
+
+                
                 if self.use_augs:
                     assert not self.use_h5, "augmentations not currently setup with h5 files, only pt files"
                     ## aug numbers start at 0, -1 is the original with no augmentation 
@@ -435,7 +505,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
 
 
 class Generic_Split(Generic_MIL_Dataset):
-        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2, perturb_variance=0.1, number_of_augs = 1):
+        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2, perturb_variance=0.1, number_of_augs = 1, max_patches_per_slide=100):
                 self.use_h5 = False
                 self.use_perturbs = False
                 self.use_augs = False
@@ -445,6 +515,7 @@ class Generic_Split(Generic_MIL_Dataset):
                 self.data_dir = data_dir
                 self.coords_path = coords_path
                 self.num_classes = num_classes
+                self.max_patches_per_slide = max_patches_per_slide
                 self.slide_cls_ids = [[] for i in range(self.num_classes)]
                 for i in range(self.num_classes):
                         self.slide_cls_ids[i] = np.where(self.slide_data['label'] == i)[0]

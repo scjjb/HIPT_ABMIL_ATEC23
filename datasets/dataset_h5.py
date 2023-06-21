@@ -100,7 +100,8 @@ class Whole_Slide_Bag_FP(Dataset):
                 custom_transforms=None,
                 custom_downsample=1,
                 target_patch_size=-1,
-                selected_idxs=None
+                selected_idxs=None,
+                max_patches_per_slide=None
                 ):
                 """
                 Args:
@@ -110,8 +111,9 @@ class Whole_Slide_Bag_FP(Dataset):
                         custom_downsample (int): Custom defined downscale factor (overruled by target_patch_size)
                         target_patch_size (int): Custom defined image size before embedding
                 """
-                self.pretrained=pretrained
+                self.pretrained = pretrained
                 self.wsi = wsi
+                self.max_patches_per_slide = max_patches_per_slide
                 if not custom_transforms:
                         self.roi_transforms = eval_transforms(pretrained=pretrained)
                 else:
@@ -124,6 +126,9 @@ class Whole_Slide_Bag_FP(Dataset):
                             self.selected_coords=f['coords']
                         else:
                             self.selected_coords = f['coords'][sorted(list(set(selected_idxs)))]
+                        if self.max_patches_per_slide:
+                            if self.max_patches_per_slide>self.selected_coords:
+                                self.selected_coords = random.sample(self.selected_coords,self.max_patches_per_slide)
                         self.patch_level = f['coords'].attrs['patch_level']
                         self.patch_size = f['coords'].attrs['patch_size']
                         self.length = len(self.selected_coords)
@@ -161,10 +166,11 @@ class Whole_Slide_Bag_FP(Dataset):
         def __getitem__(self, idx):
                 coord=self.selected_coords[idx]
                 img = self.wsi.read_region(coord, self.patch_level, (self.patch_size, self.patch_size)).convert('RGB')
-
+                
                 if self.target_patch_size is not None:
                         img = img.resize(self.target_patch_size)
                 img = self.roi_transforms(img).unsqueeze(0)
+                
                 return img, coord
 
 class Dataset_All_Bags(Dataset):
