@@ -15,6 +15,7 @@ import torch.nn.functional as F
 from PIL import Image
 import h5py
 
+import random
 from random import randrange
 
 def eval_transforms(pretrained=False):
@@ -101,7 +102,10 @@ class Whole_Slide_Bag_FP(Dataset):
                 custom_downsample=1,
                 target_patch_size=-1,
                 selected_idxs=None,
-                max_patches_per_slide=None
+                max_patches_per_slide=None,
+                model_architecture=None,
+                batch_size=None,
+                extract_features=False
                 ):
                 """
                 Args:
@@ -120,15 +124,26 @@ class Whole_Slide_Bag_FP(Dataset):
                         self.roi_transforms = custom_transforms
 
                 self.file_path = file_path
-                
+                self.extract_features = extract_features
+                #print("file path:",self.file_path)
                 with h5py.File(self.file_path, "r") as f:
                         if selected_idxs is None:
                             self.selected_coords=f['coords']
                         else:
                             self.selected_coords = f['coords'][sorted(list(set(selected_idxs)))]
+                        #print("max patches per slide",self.max_patches_per_slide)
+                        #print(self.selected_coords)
+                        #print(self.selected_coords.dtype)
                         if self.max_patches_per_slide:
-                            if self.max_patches_per_slide>self.selected_coords:
-                                self.selected_coords = random.sample(self.selected_coords,self.max_patches_per_slide)
+                            if self.max_patches_per_slide<len(self.selected_coords):
+                                #self.selected_coords = random.sample(self.selected_coords,self.max_patches_per_slide)
+                                #sample_keys = random.sample(list(self.selected_coords.keys()), self.max_patches_per_slide)
+                                #self.selected_coords = {key: self.selected_coords[key] for key in sample_keys}
+                                sample_idxs = random.sample(range(len(self.selected_coords)),self.max_patches_per_slide)
+                                self.selected_coords = torch.tensor(self.selected_coords[sorted(sample_idxs)])
+                        #print("len selected_coords",len(self.selected_coords))
+                        #print("selected coords:",self.selected_coords)
+                        #print(self.selected_coords)
                         self.patch_level = f['coords'].attrs['patch_level']
                         self.patch_size = f['coords'].attrs['patch_size']
                         self.length = len(self.selected_coords)
@@ -166,7 +181,6 @@ class Whole_Slide_Bag_FP(Dataset):
         def __getitem__(self, idx):
                 coord=self.selected_coords[idx]
                 img = self.wsi.read_region(coord, self.patch_level, (self.patch_size, self.patch_size)).convert('RGB')
-                
                 if self.target_patch_size is not None:
                         img = img.resize(self.target_patch_size)
                 img = self.roi_transforms(img).unsqueeze(0)

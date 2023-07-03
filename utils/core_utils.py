@@ -9,6 +9,9 @@ from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
 
+from models.resnet_custom import resnet18_baseline,resnet50_baseline
+import timm
+
 class Accuracy_Logger(object):
     """Accuracy logger"""
     def __init__(self, n_classes):
@@ -98,6 +101,18 @@ def train(datasets, cur, class_counts, args):
     """   
         train for a single fold
     """
+    if args.extract_features:
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        
+        print('loading {} pretrained model {}'.format(args.pretraining_dataset, args.model_architecture))
+        if args.model_architecture=='resnet18':
+            feature_extractor_model = resnet18_baseline(pretrained=True,dataset=args.pretraining_dataset)
+        elif args.model_architecture=='resnet50':
+            feature_extractor_model = resnet50_baseline(pretrained=True,dataset=args.pretraining_dataset)
+        elif args.model_architecture=='levit_128s':
+            feature_extractor_model = timm.create_model('levit_256',pretrained=True, num_classes=0)
+        feature_extractor_model.to(device)
+    
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):
@@ -177,14 +192,14 @@ def train(datasets, cur, class_counts, args):
     print('Done!')
     
     print('\nInit Loaders...', end=' ')
-    if args.extract_features:
-        train_split.extract_features(True)
-        train_split.initialise_model(args.model_type, args.pretraining_dataset)
+    #if args.extract_features:
+    #    train_split.extract_features(True)
+    #    train_split.initialise_model(args.model_architecture, args.pretraining_dataset)
     if args.augment_features:
         train_split.augment_features(True)
         train_split.set_transforms()
 
-    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample, max_patches_per_slide = args.max_patches_per_slide)
+    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
     val_loader = get_split_loader(val_split,  testing = args.testing)
     test_loader = get_split_loader(test_split, testing = args.testing)
     print('Done!')
@@ -199,12 +214,12 @@ def train(datasets, cur, class_counts, args):
 
     for epoch in range(args.max_epochs):
         if args.model_type in ['clam_sb', 'clam_mb'] and not args.no_inst_cluster:     
-            train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn)
+            train_loop_clam(epoch, model, train_loader, optimizer, args.n_classes, args.bag_weight, writer, loss_fn, feature_extractor=feature_extractor_model)
             stop, _, _, _ = validate_clam(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
         
         else:
-            train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
+            train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn, feature_extractor=feature_extractor_model)
             stop, _, _, _ = validate(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
         
@@ -238,7 +253,7 @@ def train(datasets, cur, class_counts, args):
     return results_dict, test_auc, val_auc, 1-test_error, 1-val_error 
 
 
-def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None, feature_extractor = None):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -252,6 +267,11 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
     print('\n')
     for batch_idx, (data, label) in enumerate(loader):
         data, label = data.to(device), label.to(device)
+
+        if feature_extractor:
+            with torch.no_grad():
+                data = feature_extractor(data)
+
         logits, Y_prob, Y_hat, _, instance_dict = model(data, label=label, instance_eval=True)
 
         acc_logger.log(Y_hat, label)
@@ -306,7 +326,7 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         writer.add_scalar('train/error', train_error, epoch)
         writer.add_scalar('train/clustering_loss', train_inst_loss, epoch)
 
-def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None):   
+def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None, feature_extractor = None):   
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -314,8 +334,14 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
     train_error = 0.
 
     print('\n')
-    for batch_idx, (data, label) in enumerate(loader):
+    for batch_idx, (data,label) in enumerate(loader):
+        #data = data.to(device),
+        #label = label.to(device)
         data, label = data.to(device), label.to(device)
+        
+        if feature_extractor:
+            with torch.no_grad():
+                data = feature_extractor(data)
 
         logits, Y_prob, Y_hat, _, _ = model(data)
         

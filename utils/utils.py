@@ -46,6 +46,14 @@ def collate_MIL_coords(batch):
         slide_ids= np.vstack([item[3] for item in batch])
         return [img, label,coords,slide_ids]
 
+def collate_features_wholeslide(batch):
+        #print([item for item in batch[0][1]])
+        #print("len(batch[0][0])",len(batch[0][0]))
+        img = torch.cat([item[0] for item in batch[0][0]], dim = 0)
+        #coords = np.vstack([item[1] for item in batch[0][0]])
+        label = torch.LongTensor([batch[0][1]])
+        return [img, label]
+
 def collate_features(batch):
         img = torch.cat([item[0] for item in batch], dim = 0)
         coords = np.vstack([item[1] for item in batch])
@@ -70,7 +78,11 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
         collate=collate_MIL
         if hasattr(split_dataset,'use_h5'):
             if split_dataset.use_h5:
-                collate=collate_MIL_coords    
+                collate=collate_MIL_coords 
+
+        if hasattr(split_dataset,'extract_features'):
+            if split_dataset.extract_features:
+                collate=collate_features_wholeslide
         
         if not testing:
                 if training:

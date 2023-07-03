@@ -29,6 +29,9 @@ from ray.air.config import RunConfig
 import ray
 from utils.tuning_utils import TrialPlateauStopper
 
+import signal
+import sys
+
 import cProfile, pstats
 
 def main():
@@ -231,6 +234,14 @@ parser.add_argument('--number_of_augs', type=int, default=1, help='number of aug
 parser.add_argument('--extract_features', action='store_true', default=False, help='extract features during training')
 parser.add_argument('--augment_features', action='store_true', default=False, help='if extracting features, whether to apply augmentations before feature extraction')
 parser.add_argument('--max_patches_per_slide', type=int, default=100, help='number of patches to use per slide each iteration when extracting features during training')
+parser.add_argument('--model_architecture',type=str,choices=['resnet18','resnet50','levit_128s'],default='resnet50')
+parser.add_argument('--batch_size', type=int, default=256)
+parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
+parser.add_argument('--data_h5_dir', type=str, default=None)
+parser.add_argument('--data_slide_dir', type=str, default=None)
+parser.add_argument('--slide_ext', type=str, default= '.svs')
+parser.add_argument('--custom_downsample', type=int, default=1)
+parser.add_argument('--target_patch_size', type=int, default=-1)
 
 ## sampling options
 parser.add_argument('--sampling', action='store_true', default=False, help='sampling for faster training')
@@ -336,6 +347,7 @@ else:
 
 dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
                             data_dir= os.path.join(args.data_root_dir, args.features_folder),
+                            max_patches_per_slide=args.max_patches_per_slide,
                             perturb_variance=args.perturb_variance,
                             number_of_augs=args.number_of_augs,
                             coords_path = args.coords_path,
@@ -344,6 +356,14 @@ dataset = Generic_MIL_Dataset(csv_path = args.csv_path,
                             print_info = True,
                             label_dict = args.label_dict,
                             patient_strat=False,
+                            data_h5_dir=args.data_h5_dir,
+                            data_slide_dir=args.data_slide_dir,
+                            slide_ext=args.slide_ext,
+                            pretrained=True, 
+                            custom_downsample=args.custom_downsample, 
+                            target_patch_size=args.target_patch_size,
+                            model_architecture = args.model_architecture,
+                            batch_size = args.batch_size,
                             ignore=[])
 
     
@@ -374,6 +394,7 @@ for key, val in settings.items():
     print("{}:  {}".format(key, val))        
 
 if __name__ == "__main__":
+    #torch.multiprocessing.set_start_method('spawn')
     if args.profile:
         profiler = cProfile.Profile()
         profiler.enable()
