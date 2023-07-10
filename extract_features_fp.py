@@ -18,6 +18,8 @@ from PIL import Image
 import h5py
 import openslide
 import timm
+from HIPT_4K.hipt_4k import HIPT_4K
+from HIPT_4K.hipt_model_utils import eval_transforms
 import cv2
 import torchstain
 import torchvision
@@ -164,6 +166,8 @@ def compute_w_loader(file_path, output_path, wsi, model,
         elif args.model_type=='levit_128s':
             kwargs = {'num_workers': 16, 'pin_memory': True} if device.type == "cuda" else {}
             tfms=torch.nn.Sequential(transforms.CenterCrop(224))
+        elif args.model_type=='HIPT_4K':
+            kwargs = {'num_workers': 1, 'pin_memory': True} if device.type == "cuda" else {}
         loader = DataLoader(dataset=dataset, batch_size=batch_size, **kwargs, collate_fn=collate_features)
 
         if verbose > 0:
@@ -198,7 +202,7 @@ parser.add_argument('--no_auto_skip', default=False, action='store_true')
 parser.add_argument('--custom_downsample', type=int, default=1)
 parser.add_argument('--target_patch_size', type=int, default=-1)
 parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')
-parser.add_argument('--model_type',type=str,choices=['resnet18','resnet50','levit_128s'],default='resnet50')
+parser.add_argument('--model_type',type=str,choices=['resnet18','resnet50','levit_128s','HIPT_4K'],default='resnet50')
 parser.add_argument('--use_transforms',type=str,choices=['all','spatial','macenko','none'],default='none')
 args = parser.parse_args()
 
@@ -217,13 +221,15 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(args.feat_dir, 'h5_files'), exist_ok=True)
         dest_files = os.listdir(os.path.join(args.feat_dir, 'pt_files'))
 
-        print('loading {} pretrained model'.format(args.pretraining_dataset))
+        print('loading {} model'.format(args.model_type))
         if args.model_type=='resnet18':
             model = resnet18_baseline(pretrained=True,dataset=args.pretraining_dataset)
         elif args.model_type=='resnet50':
             model = resnet50_baseline(pretrained=True,dataset=args.pretraining_dataset)
         elif args.model_type=='levit_128s':
             model=timm.create_model('levit_256',pretrained=True, num_classes=0)    
+        elif args.model_type=='HIPT_4K':
+            model = HIPT_4K(model256_path="ckpts/vit256_small_dino.pth",model4k_path="ckpts/vit4k_xs_dino.pth",device256=torch.device('cuda:0'),device4k=torch.device('cuda:0'))
         model = model.to(device)
         
         if torch.cuda.device_count() > 1:

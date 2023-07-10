@@ -56,7 +56,8 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 number_of_augs=0,
                 slide_ext=None,
                 data_h5_dir=None,
-                data_slide_dir=None
+                data_slide_dir=None,
+                max_patches_per_slide=None
                 ):
                 """
                 Args:
@@ -80,6 +81,7 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 self.slide_ext = slide_ext
                 self.data_h5_dir = data_h5_dir
                 self.data_slide_dir = data_slide_dir
+                self.max_patches_per_slide = max_patches_per_slide
                 if not label_col:
                         label_col = 'label'
                 self.label_col = label_col
@@ -350,7 +352,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 coords_path,
                 perturb_variance=0.1,
                 number_of_augs=1,
-                max_patches_per_slide=100,
+                max_patches_per_slide=None,
                 data_h5_dir=None,
                 data_slide_dir=None,
                 slide_ext=None,
@@ -382,18 +384,20 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 self.target_patch_size = target_patch_size
                 self.model_architecture = model_architecture
                 self.batch_size = batch_size
-
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
                 print("use_h5 is currently not set to use h5 but to instead get coords from pt")
 
-        #def extract_features(self, toggle):
-        #        self.extract_features = toggle
-        #        print("extracting features from {} patches per slide".format(self.max_patches_per_slide))
-
-        def augment_features(self, toggle):
+        def set_extract_features(self, toggle):
                 self.extract_features = toggle
-                print("augmenting features")
+                if toggle:
+                    print("extracting features from {} patches per slide".format(self.max_patches_per_slide))
+
+        def set_augment_features(self, toggle):
+                self.augment_features = toggle    
+                assert(self.extract_features, "augment_features requires extract_features")
+                if toggle:
+                    print("augmenting features")
 
         def perturb_features(self, toggle):
                 self.use_perturbs = toggle
@@ -404,18 +408,17 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 print("using augmentations")
 
         def set_transforms(self):
-                if self.use_augs:
+                if self.augment_features:
                     self.transforms = transforms.Compose(
                                             [transforms.RandomHorizontalFlip(p=0.5),
                                             transforms.RandomVerticalFlip(p=0.5),
-                                            #transforms.RandomAffine(degrees=90,translate=(0.1,0.1), scale=(0.9,1.1),shear=0.1),
-                                            #transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+                                            transforms.RandomAffine(degrees=5,translate=(0.1,0.1), scale=(0.9,1.1),shear=0.1),
+                                            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
                                             transforms.ToTensor()
                                             ])
                 else:
                     self.transforms = transforms.Compose(
-                                            [transforms.ToTensor(),
-                                            ])
+                                            [transforms.ToTensor()])
 
         #def initialise_model(self, model_architecture, pretraining_dataset):
         #        device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -443,7 +446,11 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                     file_path = os.path.join(self.data_slide_dir, slide_id+self.slide_ext)
                     wsi = openslide.open_slide(file_path)
                     dataset = Whole_Slide_Bag_FP(file_path=h5_file_path, wsi=wsi, custom_transforms=self.transforms, pretrained=self.pretrained,custom_downsample=self.custom_downsample, target_patch_size=self.target_patch_size, max_patches_per_slide = self.max_patches_per_slide,model_architecture = self.model_architecture, batch_size = self.batch_size, extract_features = self.extract_features)
-                    dataset.update_sample(range(len(dataset)))
+                    #print("IN GETITEM len dataset before update",len(dataset))
+                    dataset.update_sample(np.random.choice(len(dataset),self.max_patches_per_slide))
+                    #print("IN GETITEM len dataset after update",len(dataset))
+                    #print("dataset len",len(dataset))
+                    
                     #x, y = dataset[0]
                     #device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
                     ## cannot split num workers as this is an inner loop
@@ -465,8 +472,10 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                     #        features = model(batch)
                     #        features = features.cpu().numpy()
                     #        all_features = all_features+features
-                    
+                    #print("IN GETITEM after update dataset",dataset)
                     patches = [data for data in dataset]
+                    #print(patches[0][0].shape)
+                    #print(patches[0][1])
                     label = torch.tensor(label)
                     return patches, label
 
@@ -484,6 +493,9 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                                 full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
                                 #print("loading :",full_path)
                                 features = torch.load(full_path)
+                                if self.max_patches_per_slide < len(features):
+                                    sampled_idxs=np.random.choice(len(features),self.max_patches_per_slide)
+                                    features = features[sampled_idxs]
                                 if self.use_perturbs:
                                     #print("features",features)
                                     #print("variance:",self.perturb_variance)
@@ -532,14 +544,19 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                             features = hdf5_file['features'][:]
                             coords = hdf5_file['coords'][:]
                         features = torch.from_numpy(features)
-                        if self.use_perturbs:
-                            noise = torch.randn_like(features) * 0.1
-                            features = features + noise
+                    if self.max_patches_per_slide < len(features):
+                        sampled_idxs=np.random.choice(len(features),self.max_patches_per_slide)
+                        features = features[sampled_idxs]
+                        coords = coords[sampled_idxs]
+
+                    if self.use_perturbs:
+                        noise = torch.randn_like(features) * 0.1
+                        features = features + noise
                     return features, label, coords, slide_id
 
 
 class Generic_Split(Generic_MIL_Dataset):
-        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2, perturb_variance=0.1, number_of_augs = 1, max_patches_per_slide=100,data_h5_dir=None,data_slide_dir=None,slide_ext=None, pretrained=None, custom_downsample=None, target_patch_size=None, model_architecture=None, batch_size = None, extract_features = False):
+        def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2, perturb_variance=0.1, number_of_augs = 1, max_patches_per_slide=None,data_h5_dir=None,data_slide_dir=None,slide_ext=None, pretrained=None, custom_downsample=None, target_patch_size=None, model_architecture=None, batch_size = None, extract_features = False):
                 self.use_h5 = False
                 self.use_perturbs = False
                 self.use_augs = False
@@ -559,7 +576,8 @@ class Generic_Split(Generic_MIL_Dataset):
                 self.target_patch_size = target_patch_size
                 self.model_architecture = model_architecture
                 self.batch_size = batch_size
-                self.extract_features = extract_features
+                print("max patches per slide",self.max_patches_per_slide)
+                #self.extract_features = extract_features
                 for i in range(self.num_classes):
                         self.slide_cls_ids[i] = np.where(self.slide_data['label'] == i)[0]
 

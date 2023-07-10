@@ -50,6 +50,7 @@ def collate_features_wholeslide(batch):
         #print([item for item in batch[0][1]])
         #print("len(batch[0][0])",len(batch[0][0]))
         img = torch.cat([item[0] for item in batch[0][0]], dim = 0)
+        #print("img len",len(img))
         #coords = np.vstack([item[1] for item in batch[0][0]])
         label = torch.LongTensor([batch[0][1]])
         return [img, label]

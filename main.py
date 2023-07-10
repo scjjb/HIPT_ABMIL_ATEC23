@@ -182,9 +182,9 @@ def main():
 
 # Generic training settings
 parser = argparse.ArgumentParser(description='Configurations for WSI Training')
-parser.add_argument('--data_root_dir', type=str, default=None, 
+parser.add_argument('--data_root_dir', type=str, default="/", 
                     help='directory containing features folders')
-parser.add_argument('--features_folder', type=str, default=None,
+parser.add_argument('--features_folder', type=str, default="/",
                     help='folder within data_root_dir containing the features - must contain pt_files/h5_files subfolder')
 parser.add_argument('--coords_path', type=str, default=None,
                     help='path to coords pt files if needed')
@@ -219,7 +219,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
                     help='type of model (default: clam_sb, clam w/ single attention branch)')
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
-parser.add_argument('--model_size', type=str, choices=['tinier3','tinier_resnet18','tinier2_resnet18','tiny_resnet18','tinier','tiny','small', 'big'], default='small', help='size of model, does not affect mil')
+parser.add_argument('--model_size', type=str, choices=['256','tinier3','tinier_resnet18','tinier2_resnet18','tiny_resnet18','tinier','tiny','small', 'big'], default='small', help='size of model, does not affect mil')
 parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc','treatment','treatment_switched'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
@@ -233,7 +233,7 @@ parser.add_argument('--number_of_augs', type=int, default=1, help='number of aug
 ## feature extraction options
 parser.add_argument('--extract_features', action='store_true', default=False, help='extract features during training')
 parser.add_argument('--augment_features', action='store_true', default=False, help='if extracting features, whether to apply augmentations before feature extraction')
-parser.add_argument('--max_patches_per_slide', type=int, default=100, help='number of patches to use per slide each iteration when extracting features during training')
+parser.add_argument('--max_patches_per_slide', type=int, default=100000, help='number of patches to use per slide each iteration when extracting features during training')
 parser.add_argument('--model_architecture',type=str,choices=['resnet18','resnet50','levit_128s'],default='resnet50')
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--pretraining_dataset',type=str,choices=['ImageNet','Histo'],default='ImageNet')

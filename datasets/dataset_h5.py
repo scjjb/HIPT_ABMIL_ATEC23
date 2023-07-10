@@ -99,7 +99,7 @@ class Whole_Slide_Bag_FP(Dataset):
                 wsi,
                 pretrained=False,
                 custom_transforms=None,
-                custom_downsample=1,
+                custom_downsample=None,
                 target_patch_size=-1,
                 selected_idxs=None,
                 max_patches_per_slide=None,
@@ -127,20 +127,27 @@ class Whole_Slide_Bag_FP(Dataset):
                 self.extract_features = extract_features
                 #print("file path:",self.file_path)
                 with h5py.File(self.file_path, "r") as f:
+                        self.coords=f['coords'][:len(f['coords'])]
                         if selected_idxs is None:
-                            self.selected_coords=f['coords']
+                            self.selected_coords=self.coords
+                            #print(self.selected_coords)
+                            #print(self.selected_coords[0])
                         else:
-                            self.selected_coords = f['coords'][sorted(list(set(selected_idxs)))]
+                            self.selected_coords = self.coords[sorted(list(set(selected_idxs)))]
                         #print("max patches per slide",self.max_patches_per_slide)
                         #print(self.selected_coords)
                         #print(self.selected_coords.dtype)
-                        if self.max_patches_per_slide:
-                            if self.max_patches_per_slide<len(self.selected_coords):
+                        #if self.max_patches_per_slide:
+                            #if self.max_patches_per_slide<len(self.selected_coords):
                                 #self.selected_coords = random.sample(self.selected_coords,self.max_patches_per_slide)
                                 #sample_keys = random.sample(list(self.selected_coords.keys()), self.max_patches_per_slide)
                                 #self.selected_coords = {key: self.selected_coords[key] for key in sample_keys}
-                                sample_idxs = random.sample(range(len(self.selected_coords)),self.max_patches_per_slide)
-                                self.selected_coords = torch.tensor(self.selected_coords[sorted(sample_idxs)])
+                                
+                                ## below was working but turned off
+                                #sample_idxs = random.sample(range(len(self.selected_coords)),self.max_patches_per_slide)
+                        #        sample_idxs = np.random.choice(len(self.selected_coords),self.max_patches_per_slide)
+                        #        self.selected_coords = torch.tensor(self.selected_coords[sorted(list(set(sample_idxs)))])
+                        
                         #print("len selected_coords",len(self.selected_coords))
                         #print("selected coords:",self.selected_coords)
                         #print(self.selected_coords)
@@ -169,10 +176,16 @@ class Whole_Slide_Bag_FP(Dataset):
                 print('transformations: ', self.roi_transforms)
         
         def update_sample(self,selected_idxs):
-                with h5py.File(self.file_path, "r") as f:
-                    self.selected_coords=f['coords'][sorted(list(set(selected_idxs)))]
+                #print("updating sample to length ",len(selected_idxs))
+                #with h5py.File(self.file_path, "r") as f:
+                #print("self.coords",self.coords)
+                self.selected_coords=self.coords[sorted(list(set(selected_idxs)))]
+                #print("selected coords in update sample",self.selected_coords)
+                #print("selected_coords.shape in update_sample",self.selected_coords.shape)
+                #print("selected coords",self.selected_coords)
                 self.length = len(self.selected_coords)
-
+                #print("self.length",self.length)
+        
         def coords(self,num):
                 with h5py.File(self.file_path,'r') as hdf5_file:
                     coords = hdf5_file['coords'][:num]
@@ -180,11 +193,17 @@ class Whole_Slide_Bag_FP(Dataset):
 
         def __getitem__(self, idx):
                 coord=self.selected_coords[idx]
+                #print("coord entered into read_region",(coord))
+                #print("selected_coords before read_region",self.selected_coords)
+                
+                #print("transforms:",self.roi_transforms)
                 img = self.wsi.read_region(coord, self.patch_level, (self.patch_size, self.patch_size)).convert('RGB')
                 if self.target_patch_size is not None:
                         img = img.resize(self.target_patch_size)
+                transform = transforms.Compose([transforms.ToTensor()])
+                #print("before transforms",transform(img))
                 img = self.roi_transforms(img).unsqueeze(0)
-                
+                #print("after transforms",img)
                 return img, coord
 
 class Dataset_All_Bags(Dataset):

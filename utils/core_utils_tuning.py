@@ -178,6 +178,25 @@ def train_tuning(config, datasets, cur, class_counts, args):
     optimizer = get_optim(model, args)
     print('Done!')
 
+    if args.extract_features:
+        train_split.set_extract_features(True)
+    else:
+        train_split.set_extract_features(False)
+    if args.augment_features:
+        train_split.set_augment_features(True)
+    else:
+        train_split.set_augment_features(False)
+    train_split.set_transforms()
+    val_split.set_extract_features(False)
+    val_split.set_augment_features(False)
+    val_split.set_transforms()
+    test_split.set_extract_features(False)
+    test_split.set_augment_features(False)
+    val_split.set_transforms()
+    test_split.set_transforms()
+
+
+
     print('\nInit Loaders...', end=' ')
     train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
     val_loader = get_split_loader(val_split,  testing = args.testing)

@@ -8,6 +8,8 @@ from models.model_clam import CLAM_MB, CLAM_SB
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
+import PIL
+import random
 
 from models.resnet_custom import resnet18_baseline,resnet50_baseline
 import timm
@@ -105,6 +107,7 @@ def train(datasets, cur, class_counts, args):
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         
         print('loading {} pretrained model {}'.format(args.pretraining_dataset, args.model_architecture))
+        feature_extractor_model=None
         if args.model_architecture=='resnet18':
             feature_extractor_model = resnet18_baseline(pretrained=True,dataset=args.pretraining_dataset)
         elif args.model_architecture=='resnet50':
@@ -112,7 +115,9 @@ def train(datasets, cur, class_counts, args):
         elif args.model_architecture=='levit_128s':
             feature_extractor_model = timm.create_model('levit_256',pretrained=True, num_classes=0)
         feature_extractor_model.to(device)
-    
+    else:
+        feature_extractor_model = None
+
     print('\nTraining Fold {}!'.format(cur))
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):
@@ -142,6 +147,7 @@ def train(datasets, cur, class_counts, args):
     elif args.bag_loss == 'balanced_ce':
         ce_weights=[(1/class_counts[i])*(sum(class_counts)/len(class_counts)) for i in range(len(class_counts))]
         print("weighting cross entropy with weights {}".format(ce_weights))
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(ce_weights).to(device))
     else:
         loss_fn = nn.CrossEntropyLoss()
@@ -191,15 +197,42 @@ def train(datasets, cur, class_counts, args):
     optimizer = get_optim(model, args)
     print('Done!')
     
-    print('\nInit Loaders...', end=' ')
+    print('\nInit Loaders...\n')
     #if args.extract_features:
     #    train_split.extract_features(True)
     #    train_split.initialise_model(args.model_architecture, args.pretraining_dataset)
+    if args.extract_features:
+        train_split.set_extract_features(True)
+        #val_split.extract_features(True)
+    else:
+        train_split.set_extract_features(False)
     if args.augment_features:
-        train_split.augment_features(True)
-        train_split.set_transforms()
-
+        train_split.set_augment_features(True)
+    else:
+        train_split.set_augment_features(False)
+    train_split.set_transforms()
+    val_split.set_extract_features(False)
+    val_split.set_augment_features(False)
+    val_split.set_transforms()
+    test_split.set_extract_features(False)
+    test_split.set_augment_features(False)
+    if val_split.extract_features:
+        print("WARNING: extracting validation set features")
+        if val_split.augment_features:
+            print("WARNING: augmenting validation set features")
+    if test_split.extract_features:
+        print("WARNING: extracting test set features")
+        if test_split.augment_features:
+            print("WARNING: augmenting test set features")
+    val_split.set_transforms()
+    test_split.set_transforms()
+        
+    #print("train downsample",train_split.custom_downsample)
+    #print("val downsample",val_split.custom_downsample)
+    #print("train extract_features",train_split.extract_features)
+    #print("val extract_features",val_split.extract_features)
     train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
+    #print("len train loader",len(train_loader))
     val_loader = get_split_loader(val_split,  testing = args.testing)
     test_loader = get_split_loader(test_split, testing = args.testing)
     print('Done!')
@@ -221,7 +254,7 @@ def train(datasets, cur, class_counts, args):
         else:
             train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn, feature_extractor=feature_extractor_model)
             stop, _, _, _ = validate(cur, epoch, model, val_loader, args.n_classes, 
-                early_stopping, writer, loss_fn, args.results_dir)
+                early_stopping, writer, loss_fn, args.results_dir, feature_extractor=feature_extractor_model)
         
         if stop: 
             break
@@ -269,11 +302,11 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         data, label = data.to(device), label.to(device)
 
         if feature_extractor:
+            print("len data", len(data))
             with torch.no_grad():
                 data = feature_extractor(data)
-
+        model.train()
         logits, Y_prob, Y_hat, _, instance_dict = model(data, label=label, instance_eval=True)
-
         acc_logger.log(Y_hat, label)
         loss = loss_fn(logits, label)
         loss_value = loss.item()
@@ -329,20 +362,37 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
 def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None, feature_extractor = None):   
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
+    if feature_extractor is not None:
+        feature_extractor.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
     train_loss = 0.
     train_error = 0.
 
     print('\n')
+    pil_image_transform=transforms.ToPILImage()
     for batch_idx, (data,label) in enumerate(loader):
         #data = data.to(device),
         #label = label.to(device)
+        #data, label = data.to(device), label.to(device)
+        #print(batch_idx, data[0], label)
+        #print("len batched data",len(data))
+        
+        plot_data=False
+        if plot_data:
+            for patch in data:
+                plot_tensor = patch
+                #print("tensor shape",plot_tensor.shape)
+                #plot_image = PIL.Image.fromarray(plot_tensor)
+                plot_image=pil_image_transform(plot_tensor)
+                plot_image.save("../mount_outputs/patch_plots/{}.jpg".format(random.randint(0,100000)))
         data, label = data.to(device), label.to(device)
         
-        if feature_extractor:
+        if feature_extractor is not None:
+            #print("using feature extractor")
             with torch.no_grad():
                 data = feature_extractor(data)
-
+        #print("training label",label)
+        #print("data:",data)
         logits, Y_prob, Y_hat, _, _ = model(data)
         
         acc_logger.log(Y_hat, label)
@@ -378,7 +428,7 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         writer.add_scalar('train/error', train_error, epoch)
 
    
-def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None):
+def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer = None, loss_fn = None, results_dir=None, feature_extractor = None):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
@@ -392,7 +442,8 @@ def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer
     with torch.no_grad():
         for batch_idx, (data, label) in enumerate(loader):
             data, label = data.to(device, non_blocking=True), label.to(device, non_blocking=True)
-
+            if feature_extractor:
+                data = feature_extractor(data)
             logits, Y_prob, Y_hat, _, _ = model(data)
 
             acc_logger.log(Y_hat, label)

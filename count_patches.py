@@ -29,6 +29,7 @@ def count_patches(dataset):
             patches1=patches1+count
         patch_counts=patch_counts+[[ids,count]]
         print("number", batch_idx, "   slide",ids,"  class 0 patches: ",patches0, "  class 1 patches: ",patches1)
+    patches=patches0+patches1
     pd.DataFrame(patch_counts,columns=["slide","patches"]).to_csv("results/patch_counts/treatment.csv",index=False)
     return patches
 
@@ -53,7 +54,8 @@ dataset = Generic_MIL_Dataset(csv_path = csv_path,
                         print_info = True,
                         label_dict = label_dict,
                         patient_strat=False,
-                        ignore=[])
+                        ignore=[],
+                        max_patches_per_slide=100000000)
 split_dataset=dataset
 patches  = count_patches(split_dataset)
 print("{} patches".format(patches))
