@@ -89,7 +89,12 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 slide_data = pd.read_csv(csv_path)
                 slide_data = self.filter_df(slide_data, filter_dict)
                 slide_data = self.df_prep(slide_data, self.label_dict, ignore, self.label_col)
-                
+                self.pretrained = None
+                self.custom_downsample = None
+                self.target_patch_size = None
+                self.model_architecture = None
+                self.batch_size = None
+
                 ###shuffle data
                 if shuffle:
                         np.random.seed(seed)
@@ -352,7 +357,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 coords_path,
                 perturb_variance=0.1,
                 number_of_augs=1,
-                max_patches_per_slide=None,
+                max_patches_per_slide=float('inf'),
                 data_h5_dir=None,
                 data_slide_dir=None,
                 slide_ext=None,
@@ -577,7 +582,7 @@ class Generic_Split(Generic_MIL_Dataset):
                 self.model_architecture = model_architecture
                 self.batch_size = batch_size
                 print("max patches per slide",self.max_patches_per_slide)
-                #self.extract_features = extract_features
+                self.extract_features = extract_features
                 for i in range(self.num_classes):
                         self.slide_cls_ids[i] = np.where(self.slide_data['label'] == i)[0]
 

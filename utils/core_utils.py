@@ -169,6 +169,7 @@ def train(datasets, cur, class_counts, args):
         if args.inst_loss == 'svm':
             from topk.svm import SmoothTop1SVM
             instance_loss_fn = SmoothTop1SVM(n_classes = 2)
+            device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
             if device.type == 'cuda':
                 instance_loss_fn = instance_loss_fn.cuda()
         else:

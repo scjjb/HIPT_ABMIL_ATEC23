@@ -219,7 +219,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
                     help='type of model (default: clam_sb, clam w/ single attention branch)')
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
-parser.add_argument('--model_size', type=str, choices=['256','tinier3','tinier_resnet18','tinier2_resnet18','tiny_resnet18','tinier','tiny','small', 'big'], default='small', help='size of model, does not affect mil')
+parser.add_argument('--model_size', type=str, choices=['256','tinier3','tinier_resnet18','tinier2_resnet18','tiny_resnet18','tinier','tiny','small', 'big','hipt'], default='small', help='size of model, does not affect mil')
 parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc','treatment','treatment_switched'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')

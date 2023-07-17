@@ -49,7 +49,7 @@ parser.add_argument('--models_exp_code', type=str, default=None,
                     help='experiment code to load trained models (directory under results_dir containing model checkpoints')
 parser.add_argument('--splits_dir', type=str, default=None,
                     help='splits directory, if using custom splits other than what matches the task (default: None)')
-parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', 
+parser.add_argument('--model_size', type=str, choices=['small', 'big','hipt'], default='small', 
                     help='size of model (default: small)')
 parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mil'], default='clam_sb', 
                     help='type of model (default: clam_sb)')
@@ -61,7 +61,7 @@ parser.add_argument('--fold', type=int, default=-1, help='single fold to evaluat
 parser.add_argument('--micro_average', action='store_true', default=False, 
                     help='use micro_average instead of macro_avearge for multiclass AUC')
 parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all'], default='test')
-parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc'])
+parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc','treatment'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
 parser.add_argument('--profile_rows', type=int, default=10, help='number of rows to show from profiler (requires --profile to show any)')
@@ -139,6 +139,10 @@ elif args.task == 'ovarian_1vsall':
 elif args.task == 'nsclc':
     args.n_classes=2
     args.label_dict = {'luad':0,'lusc':1}
+
+elif args.task =='treatment':
+    args.n_classes=2
+    args.label_dict = {'invalid':0,'effective':1}
 
 else:
     raise NotImplementedError
