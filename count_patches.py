@@ -19,18 +19,21 @@ def count_patches(dataset):
     loader = get_simple_loader(dataset)
     patches0=0
     patches1=0
+    #patches=0
     print("slides: ",len(loader))
     patch_counts=[]
     for batch_idx, (data, label, coords, ids) in enumerate(loader):
         count=len(coords)
+        #patches=patches+count
         if label==0:
             patches0=patches0+count
         elif label==1:
             patches1=patches1+count
         patch_counts=patch_counts+[[ids,count]]
+        #print("number", batch_idx, "   slide",ids," total patches: ",patches)
         print("number", batch_idx, "   slide",ids,"  class 0 patches: ",patches0, "  class 1 patches: ",patches1)
     patches=patches0+patches1
-    pd.DataFrame(patch_counts,columns=["slide","patches"]).to_csv("results/patch_counts/treatment.csv",index=False)
+    #pd.DataFrame(patch_counts,columns=["slide","patches"]).to_csv("results/patch_counts/ESGO_available_staging.csv",index=False)
     return patches
 
 

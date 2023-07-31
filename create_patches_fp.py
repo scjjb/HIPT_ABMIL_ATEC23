@@ -235,6 +235,17 @@ parser.add_argument('--patch_size', type = int, default=256,
                                         help='patch_size')
 parser.add_argument('--sthresh', type = int, default=8,
                                                 help='segmentation_threshold')
+parser.add_argument('--mthresh', type = int, default=7,
+                                                help='median_threshold')
+parser.add_argument('--atfilter', type = int, default=100,
+                                                help='a_t parameter for filtering')
+parser.add_argument('--ahfilter', type = int, default=16,
+                                                help='a_h parameter for filtering')
+parser.add_argument('--max_holes', type = int, default=8,
+                                                help='max_num_holes parameter for filtering')
+parser.add_argument('--seg_level', type = int, default=-1,
+                                                help='slide hierarchy level to use for segmentation, -1 automatically finds best level for 64x downsample')
+parser.add_argument('--use_otsu', default=False, action='store_true')
 parser.add_argument('--patch', default=False, action='store_true')
 parser.add_argument('--seg', default=False, action='store_true')
 parser.add_argument('--stitch', default=False, action='store_true')
@@ -277,9 +288,9 @@ if __name__ == '__main__':
                 if key not in ['source']:
                         os.makedirs(val, exist_ok=True)
 
-        seg_params = {'seg_level': -1, 'sthresh': args.sthresh, 'mthresh': 7, 'close': 4, 'use_otsu': False,
+        seg_params = {'seg_level': args.seg_level, 'sthresh': args.sthresh, 'mthresh': args.mthresh, 'close': 4, 'use_otsu': args.use_otsu,
                                   'keep_ids': 'none', 'exclude_ids': 'none'}
-        filter_params = {'a_t':100, 'a_h': 16, 'max_n_holes':8}
+        filter_params = {'a_t':args.atfilter, 'a_h': args.ahfilter, 'max_n_holes':args.max_holes}
         vis_params = {'vis_level': -1, 'line_thickness': 250}
         patch_params = {'use_padding': True, 'contour_fn': 'four_pt'}
 

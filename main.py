@@ -54,7 +54,10 @@ def main():
         if args.hardware=='DGX':
             hardware={"cpu":10,"gpu":0.125}
         else:
-            hardware={"cpu":2,"gpu":0.5}
+            if args.task =='treatment':
+                hardware={"cpu":1,"gpu":0.25}
+            else:
+                hardware={"cpu":2,"gpu":0.5}
 
         if args.sampling:
             if args.no_inst_cluster:
@@ -84,11 +87,35 @@ def main():
                 }
         else:
             if args.no_inst_cluster:
-                search_space = {
-                    "reg": tune.loguniform(1e-10,1e-2),
-                    "drop_out": tune.uniform(0.00,0.99),
-                    "lr": tune.loguniform(1e-5,1e-2)
-                }
+                if args.task == "treatment":
+                    search_space={
+                        "reg": tune.grid_search([0.00005, 0.00001, 0.000005]),
+                        "drop_out": tune.grid_search([0.4, 0.5, 0.6]),
+                        "lr": tune.grid_search([0.0005,0.0001,0.00005]),
+                        "patches": tune.grid_search([65, 75, 85]),
+                        "model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
+                        #"reg": tune.grid_search([0.001, 0.0001, 0.00001]),
+                        #"drop_out": tune.grid_search([0.0, 0.25, 0.5, 0.75]),
+                        #"drop_out": tune.grid_search([0.5, 0.75]),
+                        #"lr": tune.grid_search([0.001,0.0001,0.00001]),
+                        #"lr": tune.grid_search([0.0001,0.00001,0.000001]),
+                        #"patches": tune.grid_search([25, 50, 75, 100]),
+                        #"model_size": tune.grid_search(["hipt_big","hipt_medium","hipt_small"])
+                        #"model_size": tune.grid_search(["hipt_big","hipt_medium","hipt_small","hipt_smaller"])
+                        }
+                else:
+                    search_space={
+                        "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
+                        "drop_out": tune.grid_search([0.0, 0.25, 0.5, 0.75]),
+                        "lr": tune.grid_search([0.001,0.0001, 0.00001]),
+                        "patches": tune.grid_search([10000,7500, 5000, 2500 ]),
+                        "model_size": tune.grid_search(["small","tiny","tinier"])
+                        }
+                #search_space = {
+                #    "reg": tune.loguniform(1e-10,1e-2),
+                #    "drop_out": tune.uniform(0.00,0.99),
+                #    "lr": tune.loguniform(1e-5,1e-2)
+                #}
             else:
                 search_space = {
                     "reg": tune.loguniform(1e-10,1e-2),
@@ -219,7 +246,7 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
                     help='type of model (default: clam_sb, clam w/ single attention branch)')
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
-parser.add_argument('--model_size', type=str, choices=['256','tinier3','tinier_resnet18','tinier2_resnet18','tiny_resnet18','tinier','tiny','small', 'big','hipt'], default='small', help='size of model, does not affect mil')
+parser.add_argument('--model_size', type=str, choices=['256','tinier3','tinier_resnet18','tinier2_resnet18','tiny_resnet18','tinier','tiny','small', 'big','hipt_big','hipt_medium','hipt_small','hipt_smaller'], default='small', help='size of model, does not affect mil')
 parser.add_argument('--task', type=str, choices=['ovarian_5class','ovarian_1vsall','nsclc','treatment','treatment_switched'])
 parser.add_argument('--profile', action='store_true', default=False, 
                     help='show profile of longest running code sections')
@@ -276,6 +303,11 @@ parser.add_argument('--subtyping', action='store_true', default=False,
 parser.add_argument('--bag_weight', type=float, default=0.7,
                     help='clam: weight coefficient for bag-level loss (default: 0.7)')
 parser.add_argument('--B', type=int, default=8, help='numbr of positive/negative patches to sample for clam')
+
+## debugging arg
+parser.add_argument('--debug_loader', action='store_true', default=False,
+                        help='debugger arg which runs through the loader but doesnt train models')
+
 args = parser.parse_args()
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

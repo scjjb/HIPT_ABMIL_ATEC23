@@ -202,6 +202,11 @@ def train(datasets, cur, class_counts, args):
     #if args.extract_features:
     #    train_split.extract_features(True)
     #    train_split.initialise_model(args.model_architecture, args.pretraining_dataset)
+    if args.debug_loader:
+        train_split.set_debug_loader(True)
+        val_split.set_debug_loader(True)
+        test_split.set_debug_loader(True)
+    
     if args.extract_features:
         train_split.set_extract_features(True)
         #val_split.extract_features(True)
@@ -232,10 +237,13 @@ def train(datasets, cur, class_counts, args):
     #print("val downsample",val_split.custom_downsample)
     #print("train extract_features",train_split.extract_features)
     #print("val extract_features",val_split.extract_features)
-    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
+    workers = 4
+    if args.debug_loader:
+        workers = 1
+    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample, workers=workers)
     #print("len train loader",len(train_loader))
-    val_loader = get_split_loader(val_split,  testing = args.testing)
-    test_loader = get_split_loader(test_split, testing = args.testing)
+    val_loader = get_split_loader(val_split,  testing = args.testing, workers=workers)
+    test_loader = get_split_loader(test_split, testing = args.testing, workers=workers)
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')
@@ -253,7 +261,7 @@ def train(datasets, cur, class_counts, args):
                 early_stopping, writer, loss_fn, args.results_dir)
         
         else:
-            train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn, feature_extractor=feature_extractor_model)
+            train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn, feature_extractor=feature_extractor_model, debug_loader=args.debug_loader)
             stop, _, _, _ = validate(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir, feature_extractor=feature_extractor_model)
         
@@ -360,7 +368,7 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
         writer.add_scalar('train/error', train_error, epoch)
         writer.add_scalar('train/clustering_loss', train_inst_loss, epoch)
 
-def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None, feature_extractor = None):   
+def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_fn = None, feature_extractor = None, debug_loader=False):   
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     if feature_extractor is not None:
@@ -372,6 +380,8 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
     print('\n')
     pil_image_transform=transforms.ToPILImage()
     for batch_idx, (data,label) in enumerate(loader):
+        if debug_loader:
+            continue
         #data = data.to(device),
         #label = label.to(device)
         #data, label = data.to(device), label.to(device)

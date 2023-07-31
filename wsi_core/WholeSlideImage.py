@@ -156,7 +156,7 @@ class WholeSlideImage(object):
        
         # Thresholding
         if use_otsu:
-            _, img_otsu = cv2.threshold(img_med, 0, sthresh_up, cv2.THRESH_OTSU+cv2.THRESH_BINARY)
+            _, img_otsu = cv2.threshold(img_med, sthresh, sthresh_up, cv2.THRESH_OTSU+cv2.THRESH_BINARY)
         else:
             _, img_otsu = cv2.threshold(img_med, sthresh, sthresh_up, cv2.THRESH_BINARY)
 
@@ -174,6 +174,7 @@ class WholeSlideImage(object):
         # Find and filter contours
         contours, hierarchy = cv2.findContours(img_otsu, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE) # Find contours 
         hierarchy = np.squeeze(hierarchy, axis=(0,))[:, 2:]
+        print("num contours before filtering:",len(contours))
         if filter_params: foreground_contours, hole_contours = _filter_contours(contours, hierarchy, filter_params)  # Necessary for filtering out artifacts
 
         self.contours_tissue = self.scaleContourDim(foreground_contours, scale)

@@ -57,7 +57,10 @@ for model_name in model_names:
         accuracies=[]
         f1s=[]
         balanced_accuracies=[]
-    
+        
+        print("confusion matrix (predicted x axis, true y axis): \n")
+        print(confusion_matrix(all_Ys,all_Yhats),"\n")
+
         for _ in range(bootstraps):
             idxs=np.random.choice(range(len(all_Ys)),len(all_Ys))
             if args.num_classes==2:

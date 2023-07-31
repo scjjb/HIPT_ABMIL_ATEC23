@@ -101,6 +101,8 @@ def train_tuning(config, datasets, cur, class_counts, args):
     args.lr=config["lr"]
     args.reg=config["reg"]
     args.drop_out=config["drop_out"]
+    args.max_patches_per_slide=config["patches"]
+    args.model_size=config["model_size"]
     writer_dir = os.path.join(args.results_dir, str(cur))
     if not os.path.isdir(writer_dir):
         os.mkdir(writer_dir)
@@ -114,6 +116,7 @@ def train_tuning(config, datasets, cur, class_counts, args):
 
     print('\nInit train/val/test splits...', end=' ')
     train_split, val_split, test_split = datasets
+    train_split.max_patches_per_slide=args.max_patches_per_slide
     save_splits(datasets, ['train', 'val', 'test'], os.path.join(args.results_dir, 'splits_{}.csv'.format(cur)))
     print('Done!')
     print("Training on {} samples".format(len(train_split)))

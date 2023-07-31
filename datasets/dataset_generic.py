@@ -273,7 +273,8 @@ class Generic_WSI_Classification_Dataset(Dataset):
                 
                 else:
                         assert csv_path 
-                        all_splits = pd.read_csv(csv_path, dtype=self.slide_data['slide_id'].dtype)  # Without "dtype=self.slide_data['slide_id'].dtype", read_csv() will convert all-number columns to a numerical type. Even if we convert numerical columns back to objects later, we may lose zero-padding in the process; the columns must be correctly read in from the get-go. When we compare the individual train/val/test columns to self.slide_data['slide_id'] in the get_split_from_df() method, we cannot compare objects (strings) to numbers or even to incorrectly zero-padded objects/strings. An example of this breaking is shown in https://github.com/andrew-weisman/clam_analysis/tree/main/datatype_comparison_bug-2021-12-01.
+                        all_splits = pd.read_csv(csv_path)#, dtype=self.slide_data['slide_id'].dtype)  # Without "dtype=self.slide_data['slide_id'].dtype", read_csv() will convert all-number columns to a numerical type. Even if we convert numerical columns back to objects later, we may lose zero-padding in the process; the columns must be correctly read in from the get-go. When we compare the individual train/val/test columns to self.slide_data['slide_id'] in the get_split_from_df() method, we cannot compare objects (strings) to numbers or even to incorrectly zero-padded objects/strings. An example of this breaking is shown in https://github.com/andrew-weisman/clam_analysis/tree/main/datatype_comparison_bug-2021-12-01.
+                        all_splits.astype('str')
                         train_split = self.get_split_from_df(all_splits, 'train')
                         val_split = self.get_split_from_df(all_splits, 'val')
                         test_split = self.get_split_from_df(all_splits, 'test')
@@ -366,6 +367,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 target_patch_size=None,
                 model_architecture=None,
                 batch_size=None,
+                debug_loader=False,
                 **kwargs):
         
                 super(Generic_MIL_Dataset, self).__init__(**kwargs)
@@ -389,9 +391,15 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                 self.target_patch_size = target_patch_size
                 self.model_architecture = model_architecture
                 self.batch_size = batch_size
+                self.debug_loader = debug_loader
         def load_from_h5(self, toggle):
                 self.use_h5 = toggle
                 print("use_h5 is currently not set to use h5 but to instead get coords from pt")
+
+        def set_debug_loader(self, toggle):
+                self.debug_loader = toggle
+                if toggle:
+                    print("debugging loader - model will not train")
 
         def set_extract_features(self, toggle):
                 self.extract_features = toggle
@@ -497,10 +505,18 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                         if self.data_dir:
                                 full_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id))
                                 #print("loading :",full_path)
-                                features = torch.load(full_path)
+                                if self.debug_loader:
+                                    print(slide_id)
+                                try:
+                                    features = torch.load(full_path)
+                                except:
+                                    assert 1==2, "Error caused by slide {}".format(slide_id)
+                                #print("max patches per slide:",self.max_patches_per_slide)
+                                #print("len features:",len(features))
                                 if self.max_patches_per_slide < len(features):
                                     sampled_idxs=np.random.choice(len(features),self.max_patches_per_slide)
                                     features = features[sampled_idxs]
+                                #print("len features after:",len(features))
                                 if self.use_perturbs:
                                     #print("features",features)
                                     #print("variance:",self.perturb_variance)
@@ -549,6 +565,8 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
                             features = hdf5_file['features'][:]
                             coords = hdf5_file['coords'][:]
                         features = torch.from_numpy(features)
+                    #print("max patches per slide:",self.max_patches_per_slide)
+                    #print("len features:",len(features))
                     if self.max_patches_per_slide < len(features):
                         sampled_idxs=np.random.choice(len(features),self.max_patches_per_slide)
                         features = features[sampled_idxs]
@@ -562,6 +580,7 @@ class Generic_MIL_Dataset(Generic_WSI_Classification_Dataset):
 
 class Generic_Split(Generic_MIL_Dataset):
         def __init__(self, slide_data, data_dir=None, coords_path=None, num_classes=2, perturb_variance=0.1, number_of_augs = 1, max_patches_per_slide=None,data_h5_dir=None,data_slide_dir=None,slide_ext=None, pretrained=None, custom_downsample=None, target_patch_size=None, model_architecture=None, batch_size = None, extract_features = False):
+                self.debug_loader = False
                 self.use_h5 = False
                 self.use_perturbs = False
                 self.use_augs = False
