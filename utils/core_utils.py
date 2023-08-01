@@ -240,6 +240,8 @@ def train(datasets, cur, class_counts, args):
     workers = 4
     if args.debug_loader:
         workers = 1
+    if args.hardware=="DGX":
+        workers = 1
     train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample, workers=workers)
     #print("len train loader",len(train_loader))
     val_loader = get_split_loader(val_split,  testing = args.testing, workers=workers)
