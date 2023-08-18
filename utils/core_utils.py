@@ -390,14 +390,14 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
         #print(batch_idx, data[0], label)
         #print("len batched data",len(data))
         
-        plot_data=False
+        plot_data=True
         if plot_data:
             for patch in data:
                 plot_tensor = patch
                 #print("tensor shape",plot_tensor.shape)
                 #plot_image = PIL.Image.fromarray(plot_tensor)
                 plot_image=pil_image_transform(plot_tensor)
-                plot_image.save("../mount_outputs/patch_plots/{}.jpg".format(random.randint(0,100000)))
+                plot_image.save("../mount_outputs/patch_plots_hipt/{}.jpg".format(random.randint(0,100000)))
         data, label = data.to(device), label.to(device)
         
         if feature_extractor is not None:
