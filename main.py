@@ -34,6 +34,10 @@ import sys
 
 import cProfile, pstats
 
+## set maximum number of raytune trials pending at once to 20
+os.environ['TUNE_MAX_PENDING_TRIALS_PG'] = "20"
+
+
 def main():
     # create results directory if necessary
     if not os.path.isdir(args.results_dir):
