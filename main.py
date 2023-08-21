@@ -49,10 +49,10 @@ def main():
         end = args.k_end
     
     if args.tuning:
-        ray.init(num_gpus=1)
+        ray.init(num_gpus=1,runtime_env={"TUNE_MAX_PENDING_TRIALS_PG": 7})
             
         if args.hardware=='DGX':
-            hardware={"cpu":10,"gpu":0.125}
+            hardware={"cpu":32,"gpu":0.2}
         else:
             if args.task =='treatment':
                 hardware={"cpu":0.8,"gpu":0.2}
