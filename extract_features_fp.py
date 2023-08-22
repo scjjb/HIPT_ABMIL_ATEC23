@@ -158,6 +158,16 @@ def compute_w_loader(file_path, output_path, wsi, model,
             dataset = Whole_Slide_Bag_FP(file_path=file_path, wsi=wsi, custom_transforms=t, pretrained=pretrained,
                 custom_downsample=custom_downsample, target_patch_size=target_patch_size)
         
+        elif args.use_transforms=='HIPT_augment_colour':
+            ## same as HIPT_augment but no affine
+            t = transforms.Compose(
+                    [transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.RandomVerticalFlip(p=0.5),
+                    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
+                    eval_transforms()])
+            dataset = Whole_Slide_Bag_FP(file_path=file_path, wsi=wsi, custom_transforms=t, pretrained=pretrained,
+                custom_downsample=custom_downsample, target_patch_size=target_patch_size)
+        
         elif args.use_transforms=='HIPT_augment':
             t = transforms.Compose(
                     [transforms.RandomHorizontalFlip(p=0.5),
