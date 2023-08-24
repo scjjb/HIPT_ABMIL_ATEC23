@@ -116,12 +116,18 @@ def main():
                         #"reg": tune.grid_search([0.001, 0.0001]),
 
                         ## updated segmentation DGX tuning
-                        "A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
-                        "lr": tune.grid_search([0.01,0.001,0.0001]),
-                        "patches": tune.grid_search([25,50, 75,100]),
-                        "drop_out": tune.grid_search([0.25,0.5, 0.75]),
-                        #"reg": tune.grid_search([0.1, 0.001, 0.0001]),
-                        "reg": tune.grid_search([0.01]),
+                        #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
+                        #"lr": tune.grid_search([0.01,0.001,0.0001]),
+                        #"patches": tune.grid_search([25,50, 75,100]),
+                        #"drop_out": tune.grid_search([0.25,0.5, 0.75]),
+                        #"reg": tune.grid_search([0.1, 0.01, 0.001, 0.0001]),
+
+                        ## second tuning
+                        "A_model_size": tune.grid_search(["hipt_small","hipt_smaller","hipt_smallest"]),
+                        "lr": tune.grid_search([0.005,0.001,0.0005]),
+                        "patches": tune.grid_search([15, 25, 35, 45]),
+                        "drop_out": tune.grid_search([0.2,0.4,0.6]),
+                        "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
 
                         ##test
                         #"A_model_size": tune.grid_search(["hipt_smaller"]),
