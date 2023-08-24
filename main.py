@@ -178,20 +178,20 @@ def main():
                             #"model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
                             
                             ## first clam exp:
-                            #"reg": tune.grid_search([0.001, 0.0001, 0.00001]),
-                            #"drop_out": tune.grid_search([0.25, 0.5, 0.75]),
-                            #"lr": tune.grid_search([0.001,0.0001,0.00001]),
-                            #"patches": tune.grid_search([50, 75, 100]),
-                            #"B": tune.grid_search([4,6,8]),
-                            #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
+                            "reg": tune.grid_search([0.1, 0.01, 0.001, 0.0001]),
+                            "drop_out": tune.grid_search([0.25, 0.5, 0.75]),
+                            "lr": tune.grid_search([0.01,0.001,0.0001]),
+                            "patches": tune.grid_search([25, 50, 75, 100]),
+                            "B": tune.grid_search([4,6,8]),
+                            "A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
                             
                             ## second clam exp:
-                            "reg": tune.grid_search([0.0001, 0.00001]),
-                            "drop_out": tune.grid_search([0.5, 0.6, 0.7]),
-                            "lr": tune.grid_search([0.00005,0.00001,0.000005]),
-                            "patches": tune.grid_search([50, 75, 100]),
-                            "B": tune.grid_search([6,8,10]),
-                            "A_model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
+                            #"reg": tune.grid_search([0.0001, 0.00001]),
+                            #"drop_out": tune.grid_search([0.5, 0.6, 0.7]),
+                            #"lr": tune.grid_search([0.00005,0.00001,0.000005]),
+                            #"patches": tune.grid_search([50, 75, 100]),
+                            #"B": tune.grid_search([6,8,10]),
+                            #"A_model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
 
                             #"drop_out": tune.grid_search([0.0, 0.25, 0.5, 0.75]),
                             #"drop_out": tune.grid_search([0.25, 0.5, 0.75]),
