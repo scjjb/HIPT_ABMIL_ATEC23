@@ -3,6 +3,8 @@
 
 *HIPT-ABMIL is a transformer-based approach to classifying histopathology slides which leverages spatial information for better prognostication.* 
 
+<img src="HIPT-AMBIL-ModelDiagram-Background-min.png" align="centre" width="800"/>
+
 This repo was made as part of an entry to the MICCAI 2023 challenge [*automated prediction of treatment effectiveness in ovarian cancer using histopathological images*](https://github.com/cwwang1979/MICCAI_ATEC23challenge).
 
 HIPT-CLAM is a multiple instance learning (MIL) approach in which features are extracted from 4096x4096 pixel regions using the pretrained hierarchical transformer model [HIPT_4K](https://github.com/mahmoodlab/HIPT) and these features are aggregated to generate a slide-level representation using the attention-based multiple instance learning (ABMIL) approach [CLAM](https://github.com/mahmoodlab/CLAM). 
