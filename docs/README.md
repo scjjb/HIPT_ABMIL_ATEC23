@@ -1,6 +1,5 @@
-<img src="CISTIB logo.png" align="centre" width="200"/>
-
 ## Predicting Ovarian Cancer Treatment Response in Histopathology using Hierarchical Vision Transformers and Multiple Instance Learning 
+<img src="CISTIB logo.png" align="right" width="240"/>
 
 *HIPT-ABMIL is a transformer-based approach to classifying histopathology slides which leverages spatial information for better prognostication.* 
 
