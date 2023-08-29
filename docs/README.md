@@ -3,7 +3,7 @@
 
 *HIPT-ABMIL is a transformer-based approach to classifying histopathology slides which leverages spatial information for better prognostication.* 
 
-<img src="HIPT-AMBIL-ModelDiagram-Background-min.png" align="centre" width="800"/>
+<img src="HIPT-AMBIL-ModelDiagram-Background-min.png" align="centre" width="900"/>
 
 This repo was made as part of an entry to the MICCAI 2023 challenge [*automated prediction of treatment effectiveness in ovarian cancer using histopathological images*](https://github.com/cwwang1979/MICCAI_ATEC23challenge).
 
