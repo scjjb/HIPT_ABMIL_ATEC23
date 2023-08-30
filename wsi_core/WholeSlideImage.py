@@ -253,10 +253,15 @@ class WholeSlideImage(object):
         if custom_downsample > 1:
             img = img.resize((int(w/custom_downsample), int(h/custom_downsample)))
 
+        print("pre max_size")
         if max_size is not None and (w > max_size or h > max_size):
+            print("post max_size")
             resizeFactor = max_size/w if w > h else max_size/h
+            print("downsizing by factor of",resizeFactor)
+            print("previous size",w,h)
             img = img.resize((int(w*resizeFactor), int(h*resizeFactor)))
-       
+            print("new size ",int(w*resizeFactor),int(h*resizeFactor))
+
         return img
 
 
