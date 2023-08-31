@@ -188,7 +188,7 @@ def main():
                             "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
                             ##"drop_out": tune.grid_search([0.0, 0.2, 0.4, 0.6]),
                             ## again gonna split into 2 parts - part1 is 0.0 or 0.2 dropout
-                            "drop_out": tune.grid_search([0.0, 0.2]),
+                            "drop_out": tune.grid_search([0.4, 0.6]),
                             "lr": tune.grid_search([0.005,0.001,0.0005]),
                             "patches": tune.grid_search([15,25,35,45]),
                             "B": tune.grid_search([6,8,10]),
