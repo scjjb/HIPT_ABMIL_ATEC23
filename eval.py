@@ -5,18 +5,15 @@ import argparse
 import torch
 import os
 import pandas as pd
-from utils.utils import *
 from datasets.dataset_generic import Generic_MIL_Dataset
-from utils.eval_utils import *
-import cProfile, pstats
+from utils.eval_utils import eval
 from datasets.dataset_h5 import Dataset_All_Bags
 
 from functools import partial
 from ray import tune
 from ray.air.config import RunConfig
 import ray
-
-#from streamlit import legacy_caching as caching
+import cProfile, pstats
 
 # Evaluation settings
 parser = argparse.ArgumentParser(description='CLAM Evaluation Script')
