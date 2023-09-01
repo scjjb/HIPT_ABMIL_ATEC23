@@ -90,69 +90,21 @@ def main():
                 }
         else:
             if args.no_inst_cluster:
-                if args.model_size in ["hipt_big","hipt_medium","hipt_small","hipt_smaller"]:
+                if args.model_size in ["hipt_big","hipt_medium","hipt_small","hipt_smaller","hipt_smallest"]:
                     search_space={
-                            
-                        ##updated segmentation first tuning:
-                        #"reg": tune.grid_search([0.001, 0.0001, 0.00001]),
-                        #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
-                        #"drop_out": tune.grid_search([0.25, 0.5, 0.75]),
-                        #"lr": tune.grid_search([0.001,0.0001,0.00001]),
-                        #"patches": tune.grid_search([25, 50, 75, 100]),
-
-                        ## updated segmentation minituning:
-                        #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
-                        #"lr": tune.grid_search([0.001,0.0001,0.00001]),
-                        #"reg": tune.grid_search([0.001]),
-                        #"drop_out": tune.grid_search([0.75]),
-                        #"patches": tune.grid_search([25]),
-
-                        ## updated segmentation patient tuning:
-                        #"A_model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
-                        #"lr": tune.grid_search([0.001,0.0001]),
-                        #"patches": tune.grid_search([50, 75]),
-                        #"drop_out": tune.grid_search([0.5, 0.75]),
-                        #"reg": tune.grid_search([0.001, 0.0001]),
-
-                        ## updated segmentation DGX tuning
+                        ## HIPT-ABMIL first tuning
                         #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
                         #"lr": tune.grid_search([0.01,0.001,0.0001]),
                         #"patches": tune.grid_search([25,50, 75,100]),
                         #"drop_out": tune.grid_search([0.25,0.5, 0.75]),
                         #"reg": tune.grid_search([0.1, 0.01, 0.001, 0.0001]),
 
-                        ## second tuning
+                        ## HIPT-ABMIL second tuning
                         "A_model_size": tune.grid_search(["hipt_small","hipt_smaller","hipt_smallest"]),
                         "lr": tune.grid_search([0.005,0.001,0.0005]),
                         "patches": tune.grid_search([15, 25, 35, 45]),
-                        "drop_out": tune.grid_search([0.0]),
+                        "drop_out": tune.grid_search([0.0, 0.2,0.4,0.6]),
                         "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
-
-                        ##test
-                        #"A_model_size": tune.grid_search(["hipt_smaller"]),
-                        #"lr": tune.grid_search([0.001]),
-                        #"patches": tune.grid_search([10, 20]),
-                        #"drop_out": tune.grid_search([0.5]),
-                        #"reg": tune.grid_search([0.001]),
-
-                        #"reg": tune.grid_search([0.00005, 0.00001, 0.000005]),
-                        #"drop_out": tune.grid_search([0.4, 0.5, 0.6]),
-                        #"lr": tune.grid_search([0.0005,0.0001,0.00005]),
-                        #"patches": tune.grid_search([65, 75, 85]),
-                        #"A_model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
-                        #"reg": tune.grid_search([0.001, 0.0001, 0.00001]),
-                        #"drop_out": tune.grid_search([0.0, 0.25, 0.5, 0.75]),
-                        #"drop_out": tune.grid_search([0.65, 0.75, 0.85]),
-                        #"drop_out": tune.grid_search([0.5, 0.75]),
-                        #"lr": tune.grid_search([0.001,0.0001,0.00001]),
-                        #"lr": tune.grid_search([0.0001,0.00001,0.000001]),
-                        #"lr": tune.grid_search([0.00005,0.00001,0.000005]),
-                        #"patches": tune.grid_search([25, 50, 75, 100]),
-                        ##"A_model_size": tune.grid_search(["hipt_big","hipt_medium","hipt_small"])
-                        #"A_model_size": tune.grid_search(["hipt_big","hipt_medium","hipt_small","hipt_smaller"])
-                        #"A_model_size": tune.grid_search(["hipt_small","hipt_smaller"])
-                        
-                        
                         }
                 else:
                     ## first ResNet-ABMIL tuning:
@@ -175,14 +127,8 @@ def main():
 
 
             else:
-                if args.model_size in ["hipt_big","hipt_medium","hipt_small","hipt_smaller"]:
+                if args.model_size in ["hipt_big","hipt_medium","hipt_small","hipt_smaller","hipt_smallest"]:
                     search_space={
-                            #"reg": tune.grid_search([0.00005, 0.00001, 0.000005]),
-                            #"drop_out": tune.grid_search([0.4, 0.5, 0.6]),
-                            #"lr": tune.grid_search([0.0005,0.0001,0.00005]),
-                            #"patches": tune.grid_search([65, 75, 85]),
-                            #"model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
-                            
                             ## first clam exp:
                             #"reg": tune.grid_search([0.1, 0.01, 0.001, 0.0001]),
                             #"drop_out": tune.grid_search([0.25, 0.5, 0.75]),
@@ -193,32 +139,11 @@ def main():
                             
                             ## second clam exp:
                             "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
-                            ##"drop_out": tune.grid_search([0.0, 0.2, 0.4, 0.6]),
-                            ## again gonna split into 2 parts - part1 is 0.0 or 0.2 dropout
-                            "drop_out": tune.grid_search([0.4, 0.6]),
+                            "drop_out": tune.grid_search([0.0, 0.2, 0.4, 0.6]),
                             "lr": tune.grid_search([0.005,0.001,0.0005]),
                             "patches": tune.grid_search([15,25,35,45]),
                             "B": tune.grid_search([6,8,10]),
                             "A_model_size": tune.grid_search(["hipt_smaller","hipt_smallest"])
-                            
-
-
-                            #"drop_out": tune.grid_search([0.0, 0.25, 0.5, 0.75]),
-                            #"drop_out": tune.grid_search([0.25, 0.5, 0.75]),
-                            #"drop_out": tune.grid_search([0.65, 0.75, 0.85]),
-                            #"drop_out": tune.grid_search([0.5, 0.75]),
-                            #"lr": tune.grid_search([0.001,0.0001,0.00001]),
-                            #"lr": tune.grid_search([0.0001,0.00001,0.000001]),
-                            #"lr": tune.grid_search([0.00005,0.00001,0.000005]),
-                            #"patches": tune.grid_search([50, 75, 100]),
-                            #"patches": tune.grid_search([25, 50, 75, 100]),
-                            #"B": tune.grid_search([4,6,8]),
-
-                            ## have renamed this and changed the corresponding line in utils/core_utils/tuning.py to make model_size the first column in raytune (ordered alphabetically) which will cause it to alternate model sizes and not use the most computationally intensive models all at the same time
-                            #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
-                            #"A_model_size": tune.grid_search(["hipt_big","hipt_medium","hipt_small"]),
-                            #"model_size": tune.grid_search(["hipt_big","hipt_medium","hipt_small","hipt_smaller"]),
-                            #"model_size": tune.grid_search(["hipt_small","hipt_smaller"]),
                             }
                 else:
                     search_space = {
