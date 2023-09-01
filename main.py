@@ -13,7 +13,6 @@ import ray
 import cProfile, pstats
 
 # internal imports
-from utils.file_utils import save_pkl
 from utils.utils import *
 from utils.core_utils import train
 from utils.core_utils_tuning import train_tuning
@@ -207,17 +206,14 @@ def main():
 
         else:
             if args.sampling:
-                results, test_auc, val_auc, test_acc, val_acc  = train_sampling(None,datasets, i, class_counts, args)
+                test_auc, val_auc, test_acc, val_acc  = train_sampling(None,datasets, i, class_counts, args)
             else:
-                results, test_auc, val_auc, test_acc, val_acc  = train(datasets, i, class_counts, args)
+                test_auc, val_auc, test_acc, val_acc  = train(datasets, i, class_counts, args)
         
             all_test_auc.append(test_auc)
             all_val_auc.append(val_auc)
             all_test_acc.append(test_acc)
             all_val_acc.append(val_acc)
-            #write results to pkl
-            filename = os.path.join(args.results_dir, 'split_{}_results.pkl'.format(i))
-            save_pkl(filename, results)
 
     
     if not args.tuning:
