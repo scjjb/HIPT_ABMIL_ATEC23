@@ -204,6 +204,12 @@ def main():
             results_df=results.get_dataframe(filter_metric="loss", filter_mode="min")
             results_df.to_csv(args.tuning_output_file,index=False)
 
+            ## if the tuning has already run and saved, can look at the best trial using the following code:
+            ## tuner = tune.Tuner.restore(
+            ##        path="~/ray_results/test_run"
+            ##          )
+            ## results = tuner.fit()
+
             best_trial = results.get_best_result("loss", "min","last-10-avg")
             print("best trial:", best_trial)
             print("Best trial config: {}".format(best_trial.config))
