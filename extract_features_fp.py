@@ -2,11 +2,9 @@ import torch
 import torch.nn as nn
 import os
 import time
-from PIL import Image
 import h5py
 import openslide
 import timm
-import random
 import argparse
 
 from datasets.dataset_h5 import Dataset_All_Bags, Whole_Slide_Bag_FP
