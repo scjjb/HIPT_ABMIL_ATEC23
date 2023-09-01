@@ -242,10 +242,10 @@ def train(datasets, cur, class_counts, args):
         workers = 1
     if args.hardware=="DGX":
         workers = 1
-    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample, workers=workers)
+    train_loader = get_split_loader(train_split, training=True, weighted = args.weighted_sample, workers=workers)
     #print("len train loader",len(train_loader))
-    val_loader = get_split_loader(val_split,  testing = args.testing, workers=workers)
-    test_loader = get_split_loader(test_split, testing = args.testing, workers=workers)
+    val_loader = get_split_loader(val_split,  workers=workers)
+    test_loader = get_split_loader(test_split, workers=workers)
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')

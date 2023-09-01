@@ -207,12 +207,12 @@ def train_sampling(config,datasets, cur, class_counts, args):
     
     print('\nInit Loaders...', end=' ')
     train_split.load_from_h5(False)
-    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
+    train_loader = get_split_loader(train_split, training=True, weighted = args.weighted_sample)
     train_split_h5=train_split
     train_split_h5.load_from_h5(True)
-    train_loader_h5 = get_split_loader(train_split_h5, training=True, testing = args.testing, weighted = args.weighted_sample)
-    val_loader = get_split_loader(val_split,  testing = args.testing)
-    test_loader = get_split_loader(test_split, testing = args.testing)
+    train_loader_h5 = get_split_loader(train_split_h5, training=True, weighted = args.weighted_sample)
+    val_loader = get_split_loader(val_split)
+    test_loader = get_split_loader(test_split)
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')

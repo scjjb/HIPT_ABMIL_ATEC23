@@ -1,25 +1,8 @@
 from __future__ import print_function
 
 import argparse
-import pdb
 import os
-import math
-
-# internal imports
-from utils.file_utils import save_pkl, load_pkl
-from utils.utils import *
-from utils.core_utils import train
-from utils.core_utils_tuning import train_tuning
-from utils.core_utils_sampling import train_sampling
-#from utils.core_utils_sampling_tuning import train_sampling_tuning
-from datasets.dataset_generic import Generic_WSI_Classification_Dataset, Generic_MIL_Dataset
-
-# pytorch imports
 import torch
-from torch.utils.data import DataLoader, sampler
-import torch.nn as nn
-import torch.nn.functional as F
-
 import pandas as pd
 import numpy as np
 
@@ -27,12 +10,16 @@ from functools import partial
 from ray import tune
 from ray.air.config import RunConfig
 import ray
-from utils.tuning_utils import TrialPlateauStopper
-
-import signal
-import sys
-
 import cProfile, pstats
+
+# internal imports
+from utils.file_utils import save_pkl
+from utils.utils import *
+from utils.core_utils import train
+from utils.core_utils_tuning import train_tuning
+from utils.core_utils_sampling import train_sampling
+from datasets.dataset_generic import Generic_MIL_Dataset
+from utils.tuning_utils import TrialPlateauStopper
 
 ## set maximum number of raytune trials pending at once to 20
 os.environ['TUNE_MAX_PENDING_TRIALS_PG'] = "20"
@@ -129,7 +116,7 @@ def main():
             else:
                 if args.model_size in ["hipt_big","hipt_medium","hipt_small","hipt_smaller","hipt_smallest"]:
                     search_space={
-                            ## first clam exp:
+                            ## first HIPT-CLAM:
                             #"reg": tune.grid_search([0.1, 0.01, 0.001, 0.0001]),
                             #"drop_out": tune.grid_search([0.25, 0.5, 0.75]),
                             #"lr": tune.grid_search([0.01,0.001,0.0001]),
@@ -137,7 +124,7 @@ def main():
                             #"B": tune.grid_search([4,6,8]),
                             #"A_model_size": tune.grid_search(["hipt_medium","hipt_small","hipt_smaller"]),
                             
-                            ## second clam exp:
+                            ## second HIPT-CLAM tuning:
                             "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
                             "drop_out": tune.grid_search([0.0, 0.2, 0.4, 0.6]),
                             "lr": tune.grid_search([0.005,0.001,0.0005]),
@@ -272,7 +259,6 @@ parser.add_argument('--split_dir', type=str, default=None,
                     +'instead of infering from the task and label_frac argument (default: None)')
 parser.add_argument('--log_data', action='store_true', default=False, help='log data using tensorboard')
 parser.add_argument('--continue_training', action='store_true', default=False, help='Continue model training from latest checkpoint')
-parser.add_argument('--testing', action='store_true', default=False, help='debugging tool')
 parser.add_argument('--early_stopping', action='store_true', default=False, help='enable early stopping')
 parser.add_argument('--opt', type=str, choices = ['adam', 'sgd'], default='adam')
 parser.add_argument('--drop_out', type=float, default=0.25, help='dropout p=0.25')
