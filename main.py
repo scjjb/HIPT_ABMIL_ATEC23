@@ -130,12 +130,22 @@ def main():
                     #        }
 
                     ## third ResNet-ABMIL tuning
+                    #search_space={
+                    #        "reg": tune.grid_search([0.0001, 0.00001]),
+                    #        "drop_out": tune.grid_search([0.3, 0.4, 0.5]),
+                    #        "lr": tune.grid_search([0.001,0.0005]),
+                    #        "A_patches": tune.grid_search([10000, 8000, 6000]),
+                    #        "model_size": tune.grid_search(["tiny","tinier","tinier3"])
+                    #        }
+
+
+                    ## fourth ResNet-ABMIL tuning - ABMIL_mb applied to the best sb hyperparams
                     search_space={
                             "reg": tune.grid_search([0.0001, 0.00001]),
-                            "drop_out": tune.grid_search([0.3, 0.4, 0.5]),
+                            "drop_out": tune.grid_search([0.35, 0.55]),
                             "lr": tune.grid_search([0.001,0.0005]),
-                            "A_patches": tune.grid_search([10000, 8000, 6000]),
-                            "model_size": tune.grid_search(["tiny","tinier","tinier3"])
+                            "A_patches": tune.grid_search([5000,6000]),
+                            "model_size": tune.grid_search(["tiny","tinier"])
                             }
 
             else:
