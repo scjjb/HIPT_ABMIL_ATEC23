@@ -85,12 +85,21 @@ def main():
                         #"reg": tune.grid_search([0.1, 0.01, 0.001, 0.0001]),
 
                         ## HIPT-ABMIL second tuning
-                        "A_model_size": tune.grid_search(["hipt_small","hipt_smaller","hipt_smallest"]),
-                        "lr": tune.grid_search([0.005,0.001,0.0005]),
-                        "patches": tune.grid_search([15, 25, 35, 45]),
-                        "drop_out": tune.grid_search([0.0, 0.2,0.4,0.6]),
-                        "reg": tune.grid_search([0.001, 0.0001, 0.00001]),
+                        #"A_model_size": tune.grid_search(["hipt_small","hipt_smaller","hipt_smallest"]),
+                        #"lr": tune.grid_search([0.005,0.001,0.0005]),
+                        #"patches": tune.grid_search([15, 25, 35, 45]),
+                        #"drop_out": tune.grid_search([0.0, 0.2,0.4,0.6]),
+                        #"reg": tune.grid_search([0.001, 0.0001, 0.00001]),
+                        #}
+                
+                        ##HIPT-ABMIL third tuning - trying the best ABMIL_sb models with ABMIL_mb
+                        "A_model_size": tune.grid_search(["hipt_smaller","hipt_smallest"]),
+                        "lr": tune.grid_search([0.001,0.0005]),
+                        "patches": tune.grid_search([15, 35]),
+                        "drop_out": tune.grid_search([0.0, 0.2]),
+                        "reg": tune.grid_search([0.0001, 0.00001]),
                         }
+                        
                 elif args.model_size in ["tiny_resnet18","tinier_resnet18","tinier2_resnet18"]:
                     ## first HistoResNet-ABMIL tuning:
                     search_space={
