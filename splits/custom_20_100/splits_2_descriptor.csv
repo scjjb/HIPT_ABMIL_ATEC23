@@ -1,6 +1,0 @@
-,train,val,test
-high_grade,3,3,3
-low_grade,1,1,1
-clear_cell,2,2,1
-endometrioid,1,1,1
-mucinous,0,0,0
