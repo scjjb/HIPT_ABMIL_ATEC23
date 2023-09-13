@@ -123,6 +123,67 @@ python eval.py --drop_out 0.0 --model_size hipt_smaller --models_exp_code treatm
 </details>
 
 
+## Hyperparameter Tuning Details
+The full details of the hyperparameter tuning are shared below for all models.
+
+<details>
+<summary>
+Details
+</summary>
+
+Five hyperparameters were tuned for all models:
+- Learning rate - Sets the rate of change of model parameters trained using the Adam optimiser
+- Dropout - Sets the proportion of model weights to drop in each training iteration
+- Regularisation - Sets the level of weight decay in the Adam optimiser
+- Attention Layer Size - Sets the dimension of the attention layer, with the subsequent hidden layer size set to half of this in HIPT-based models and a quarter in ResNet-based models (due to the greater size of the feature space)
+- Patches per Slide - Set the number of patches randomly selected from each slide per training epoch
+
+One extra hyperparameter was tuned for the HIPT-CLAM models:
+- B - Sets the number of regions which are clustered in feature space during model training
+
+All models were tuned using multiple stages of grid searches. Each configuration was repeated three times and the performance averaged to account for random variations. 
+The best performance (based on the cross-entropy loss of the validation sets in 5-fold cross-validation) from earlier tuning runs were used to select hyperparamter options in later runs. 
+Due to resource constraints and the larger size of the ResNet-based models compared to the HIPT-based models, fewer configurations could be evaluated per run of ResNet models. This led to ResNet models being tuned in three runs rather than two. 
+
+**HIPT-ABMIL** (best loss - 0.339033):
+|    Hyperparameter    |        First Run       |     Second Run     | Final Selection |
+|:--------------------:|:----------------------:|:------------------:|:---------------:|
+|     Learning Rate    |    1e-2, 1e-3, 1e-4    |  5e-3, 1e-3, 5e-4  |       5e-4      |
+|        Dropout       |     0.25, 0.5, 0.75    | 0.0, 0.2, 0.4, 0.6 |       0.0       |
+|    Regularisation    | 1e-1, 1e-2, 1e-3, 1e-4 |  1e-3, 1e-4, 1e-5  |       1e-4      |
+| Attention Layer Size |       64, 32, 16       |      32, 16, 8     |        16       |
+|   Patches per Slide  |     25, 50, 75, 100    |   15, 25, 35, 45   |        15       |
+
+**HIPT-CLAM** (best loss - 0.334781):
+|    Hyperparameter    |        First Run       |     Second Run     | Final Selection |
+|:--------------------:|:----------------------:|:------------------:|:---------------:|
+|     Learning Rate    |    1e-2, 1e-3, 1e-4    |  5e-3, 1e-3, 5e-4  |       1e-3      |
+|        Dropout       |     0.25, 0.5, 0.75    | 0.0, 0.2, 0.4, 0.6 |       0.25      |
+|    Regularisation    | 1e-1, 1e-2, 1e-3, 1e-4 |  1e-3, 1e-4, 1e-5  |       1e-3      |
+| Attention Layer Size |       64, 32, 16       |        16, 8       |        16       |
+|   Patches per Slide  |     25, 50, 75, 100    |   15, 25, 35, 45   |        25       |
+|           B          |         4, 6, 8        |      6, 8, 10      |        6        |
+
+**ResNet-ABMIL** (best loss - 0.544718):
+|    Hyperparameter    |     First Run    |    Second Run    |     Third Run     | Final Selection |
+|:--------------------:|:----------------:|:----------------:|:-----------------:|:---------------:|
+|     Learning Rate    | 1e-3, 1e-4, 1e-5 | 5e-3, 1e-3, 5e-4 |     1e-3, 5e-4    |       1e-3      |
+|        Dropout       |  0.25, 0.5, 0.75 | 0.15, 0.35, 0.55 |   0.3, 0.4, 0.5   |       0.35      |
+|    Regularisation    | 1e-2, 1e-3, 1e-4 | 1e-3, 1e-4, 1e-5 |     1e-4, 1e-5    |       1e-4      |
+| Attention Layer Size |   512, 256, 64   |   512, 256, 64   |    256, 64, 32    |        64       |
+|   Patches per Slide  | 2500, 5000, 7500 | 6000, 5000, 4000 | 10000, 8000, 6000 |       6000      |
+
+**HistoResNet-ABMIL** (best loss - 0.523930):
+|    Hyperparameter    |     First Run    |    Second Run    |        Third Run       | Final Selection |
+|:--------------------:|:----------------:|:----------------:|:----------------------:|:---------------:|
+|     Learning Rate    | 1e-3, 1e-4, 1e-5 | 5e-3, 1e-3, 5e-4 |       1e-2, 5e-3       |       5e-3      |
+|        Dropout       |  0.25, 0.5, 0.75 | 0.15, 0.35, 0.55 |   0.1, 0.3, 0.5, 0.7   |       0.1       |
+|    Regularisation    | 1e-2, 1e-3, 1e-4 | 1e-3, 1e-4, 1e-5 |          1e-3          |       1e-3      |
+| Attention Layer Size |    128, 64, 32   |    128, 64, 32   |        256, 128        |       256       |
+|   Patches per Slide  | 2500, 5000, 7500 | 2000, 4000, 6000 | 1000, 3000, 5000, 7000 |       3000      |
+
+</details>
+
 
 ## Reference
 This code is an extension of our [previous repository](https://github.com/scjjb/DRAS-MIL), which itself was forked from the [CLAM repository](https://github.com/mahmoodlab/CLAM) with corresponding [paper](https://www.nature.com/articles/s41551-020-00682-w). Code is also used from the [HIPT repository](https://github.com/mahmoodlab/HIPT), including pretrained model weights. This repository and the original CLAM repository are both available for non-commercial academic purposes under the GPLv3 License.
