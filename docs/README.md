@@ -170,7 +170,7 @@ Due to resource constraints and the larger size of the ResNet-based models compa
 |     Learning Rate    | 1e-3, 1e-4, 1e-5 | 5e-3, 1e-3, 5e-4 |     1e-3, 5e-4    |       1e-3      |
 |        Dropout       |  0.25, 0.5, 0.75 | 0.15, 0.35, 0.55 |   0.3, 0.4, 0.5   |       0.35      |
 |    Regularisation    | 1e-2, 1e-3, 1e-4 | 1e-3, 1e-4, 1e-5 |     1e-4, 1e-5    |       1e-4      |
-| Attention Layer Size |   512, 256, 64   |   512, 256, 64   |    256, 64, 32    |        64       |
+| Attention Layer Size |   512, 256, 64   |   512, 256, 64   |  256, 128, 64, 32 |        64       |
 |   Patches per Slide  | 2500, 5000, 7500 | 6000, 5000, 4000 | 10000, 8000, 6000 |       6000      |
 
 **HistoResNet-ABMIL** (best loss - 0.523930):
