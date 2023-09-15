@@ -184,6 +184,12 @@ Due to resource constraints and the larger size of the ResNet-based models compa
 
 </details>
 
+## Requirements
+All code was ran in Linux Docker containers. Two NVIDIA GPU hardware setups have been tested:
+- Desktop PC with a single NVIDIA GTX 1660 GPU and an Intel i5-4460 quad-core CPU (Python 3.7.12, pytorch 1.8.1)
+- NVIDIA DGX A100 server with 8 NVIDIA A100 GPUs and 256 AMD EPYC 7742 CPUs (Python 3.10.10, pytorch 1.13.1)
+  
+The requirements.txt file is based on the Python 3.7.12 environment.
 
 ## Reference
 This code is an extension of our [previous repository](https://github.com/scjjb/DRAS-MIL), which itself was forked from the [CLAM repository](https://github.com/mahmoodlab/CLAM) with corresponding [paper](https://www.nature.com/articles/s41551-020-00682-w). Code is also used from the [HIPT repository](https://github.com/mahmoodlab/HIPT), including pretrained model weights. This repository and the original CLAM repository are both available for non-commercial academic purposes under the GPLv3 License.
