@@ -96,6 +96,42 @@ The cross-validation results for this optimal HIPT-ABMIL model were as follows:
 
 <details>
 <summary>
+Model comparisons
+</summary>
+
+For the model tuning, only one example run is given per model, though many were needed (one run per fold per tuning run). 
+  
+HIPT-CLAM - Same patches and features as HIPT-ABMIL, then:
+``` shell
+python main.py --model_size hipt_small --tuning --hardware DGX --tuning_output_file /mnt/results/tuning_results/main_treatment_Q90_betterseg_patience30mineverloss_3reps_noaugs_DGX_moreoptionsCLAMsbpart1_fold0.csv --num_tuning_experiments 3 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --split_dir "treatment_5fold_100" --k 1 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_patience30mineverloss_3reps_noaugs_tuning_moreoptionsCLAMsbpart1_fold0 --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 200 --model_type clam_sb --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
+python main.py --hardware DGX --max_patches_per_slide 25 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.25 --lr 0.001 --reg 0.001 --model_size hipt_smaller --B 6 --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1 --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
+python eval.py --drop_out 0.25 --model_size hipt_smaller --models_exp_code treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1_s1 --save_exp_code treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/data" --k 5 --features_folder "treatment_Q90_hipt4096_features_normalised_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv'
+python bootstrapping.py --num_classes 2 --model_names  treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
+```
+
+ResNet-ABMIL:
+``` shell
+python extract_features_fp.py --data_h5_dir "/mnt/data/extracted_mag20x_Q90_patch256_fp_updated" --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --csv_path "dataset_csv/set_treatment.csv" --feat_dir "/mnt/results/treatment_Q90_ResNet50_features_updatedsegmentation" --batch_size 32 --slide_ext .svs
+python create_patches_fp.py --source "../mount_i/treatment_data/pyramid_jpeg90compress" --save_dir "../mount_outputs/extracted_mag20x_Q90_patch256_fp_updated" --patch_size 256 --step_size 256 --seg --patch --stitch --sthresh 15 --mthresh 5 --use_otsu --closing 100
+python main.py --tuning --hardware DGX --tuning_output_file /mnt/results/tuning_results/main_treatment_Q90_ABMIL_resnet50_betterseg_patience30mineverloss_3reps_noaugs_DGX_moreoptions_fold0.csv --num_tuning_experiments 3 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --split_dir "treatment_5fold_100" --k 1 --results_dir /mnt/results --exp_code treatment_ABMIL_resnet50_Q90_betterseg_patience30mineverloss_3reps_tuning_moreoptions_fold0 --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 200 --model_type clam_sb --no_inst_cluster --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/results" --features_folder treatment_Q90_ResNet50_features_updatedsegmentation
+python main.py --hardware DGX --max_patches_per_slide 6000 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.35 --lr 0.001 --reg 0.0001 --model_size tinier --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_resnetABMIL_Q90_betterseg_6000patches_drop35lr001reg0001_modeltinier_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondtuning --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --no_inst_cluster --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_ResNet50_features_updatedsegmentation
+python eval.py --drop_out 0.5 --model_size tinier --models_exp_code treatment_resnetABMIL_Q90_betterseg_6000patches_drop35lr001reg0001_modeltinier_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondtuning_s1 --save_exp_code treatment_resnetABMIL_Q90_betterseg_6000patches_drop35lr001reg0001_modeltinier_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondtuning_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/data" --k 5 --features_folder "treatment_Q90_ResNet50_features_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv' 
+python bootstrapping.py --num_classes 2 --model_names  treatment_resnetABMIL_Q90_betterseg_6000patches_drop35lr001reg0001_modeltinier_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondtuning_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
+```
+
+HistoResNet-ABMIL - Same patches as ResNet-ABMIL, then:
+``` shell
+python extract_features_fp.py --data_h5_dir "/mnt/data/extracted_mag20x_Q90_patch256_fp_updated" --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --csv_path "dataset_csv/set_treatment.csv" --feat_dir "/mnt/results/treatment_Q90_histotrained_ResNet18_features_updatedsegmentation/"  --pretraining_dataset "Histo" --model_type resnet18 --use_transforms "HIPT" --batch_size 32 --slide_ext .svs
+python main.py --model_size tiny_resnet18 --tuning --hardware DGX --tuning_output_file /mnt/results/tuning_results/main_treatment_Q90_HistoABMIL_resnet18_betterseg_patience30mineverloss_3reps_noaugs_DGX_thirdtuning_fold0.csv --num_tuning_experiments 3 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --split_dir "treatment_5fold_100" --k 1 --results_dir /mnt/results --exp_code treatment_HistoABMIL_resnet18_Q90_betterseg_patience30mineverloss_3reps_thirdtuning_moreoptions_fold0 --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 200 --model_type clam_sb --no_inst_cluster --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/results" --features_folder treatment_Q90_histotrained_ResNet18_features_updatedsegmentation
+python main.py --hardware DGX --max_patches_per_slide 3000 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.1 --lr 0.005 --reg 0.001 --model_size small_resnet18 --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_historesnet18ABMIL_Q90_betterseg_3000patches_drop1lr005reg001_modelsmallresnet18_ABMILsb_ce_20x_5fold_noaugs_bestfromthirdtuning --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --no_inst_cluster --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/results" --features_folder treatment_Q90_histotrained_ResNet18_features_updatedsegmentation
+python eval.py --drop_out 0.1 --model_size small_resnet18 --models_exp_code treatment_historesnet18ABMIL_Q90_betterseg_3000patches_drop1lr005reg001_modelsmallresnet18_ABMILsb_ce_20x_5fold_noaugs_bestfromthirdtuning_s1 --save_exp_code treatment_historesnet18ABMIL_Q90_betterseg_3000patches_drop1lr005reg001_modelsmallresnet18_ABMILsb_ce_20x_5fold_noaugs_bestfromthirdtuning_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/results" --k 5 --features_folder "treatment_Q90_histotrained_ResNet18_features_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv' 
+python bootstrapping.py --num_classes 2 --model_names  treatment_historesnet18ABMIL_Q90_betterseg_3000patches_drop1lr005reg001_modelsmallresnet18_ABMILsb_ce_20x_5fold_noaugs_bestfromthirdtuning_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
+```
+
+</details>
+  
+<details>
+<summary>
 Challenge test set
 </summary>
 
