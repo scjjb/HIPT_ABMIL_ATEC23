@@ -181,26 +181,26 @@ All models were tuned using multiple stages of grid searches. Each configuration
 The best performance (based on the cross-entropy loss of the validation sets in 5-fold cross-validation) from earlier tuning runs were used to select hyperparamter options in later runs. 
 Due to resource constraints and the larger size of the ResNet-based models compared to the HIPT-based models, fewer configurations could be evaluated per run of ResNet models. This led to ResNet models being tuned in three runs rather than two. 
 
-**HIPT-ABMIL** (best loss - 0.339033):
-|    Hyperparameter    |        First Run       |     Second Run     | Final Selection |
-|:--------------------:|:----------------------:|:------------------:|:---------------:|
-|     Learning Rate    |    1e-2, 1e-3, 1e-4    |  5e-3, 1e-3, 5e-4  |       5e-4      |
-|        Dropout       |     0.25, 0.5, 0.75    | 0.0, 0.2, 0.4, 0.6 |       0.0       |
-|    Regularisation    | 1e-1, 1e-2, 1e-3, 1e-4 |  1e-3, 1e-4, 1e-5  |       1e-4      |
-| Attention Layer Size |       64, 32, 16       |      32, 16, 8     |        16       |
-|   Patches per Slide  |     25, 50, 75, 100    |   15, 25, 35, 45   |        15       |
+**HIPT-ABMIL** (best val loss - 0.549639):
+|    Hyperparameter    |        First Run       |     Second Run     |     Third Run     | Final Selection |
+|:--------------------:|:----------------------:|:------------------:|:---------------:|:---------------:|
+|     Learning Rate    |    1e-3, 1e-4, 1e-5    |  1e-3, 5e-4, 1e-4  |   1e-3, 5e-4  |       1e-3      |
+|        Dropout       |     0.25, 0.5, 0.75    | 0.6, 0.75, 0.9 |  0.8, 0.85, 0.9, 0.95 |       0.85       |
+|    Regularisation    |  1e-2, 1e-3, 1e-4 |  1e-1, 1e-2, 1e-3  | 1e-0, 5e-1, 1e-1, 5e-2  |       5e-1      |
+| Attention Layer Size |       64, 32, 16       |      32, 16, 8     | 32, 16  |        16       |
+|   Patches per Slide  |     25, 50, 75    |   25, 50, 75   |  50, 75, 100 |        75       |
 
-**HIPT-CLAM** (best loss - 0.334781):
-|    Hyperparameter    |        First Run       |     Second Run     | Final Selection |
-|:--------------------:|:----------------------:|:------------------:|:---------------:|
-|     Learning Rate    |    1e-2, 1e-3, 1e-4    |  5e-3, 1e-3, 5e-4  |       1e-3      |
-|        Dropout       |     0.25, 0.5, 0.75    | 0.0, 0.2, 0.4, 0.6 |       0.25      |
-|    Regularisation    | 1e-1, 1e-2, 1e-3, 1e-4 |  1e-3, 1e-4, 1e-5  |       1e-3      |
-| Attention Layer Size |       64, 32, 16       |        16, 8       |        16       |
-|   Patches per Slide  |     25, 50, 75, 100    |   15, 25, 35, 45   |        25       |
-|           B          |         4, 6, 8        |      6, 8, 10      |        6        |
+**HIPT-CLAM** (best val loss - 0.548440):
+|    Hyperparameter    |        First Run       |     Second Run     |     Third Run     | Final Selection |
+|:--------------------:|:----------------------:|:------------------:|:---------------:|:---------------:|
+|     Learning Rate    |    1e-3, 1e-4, 1e-5    |  1e-3, 5e-4, 1e-4  |   1e-3, 5e-4   |       1e-3      |
+|        Dropout       |     0.25, 0.5, 0.75    | 0.6, 0.75, 0.9 |   0.8, 0.85, 0.9, 0.95   |       0.85      |
+|    Regularisation    |  1e-2, 1e-3, 1e-4 |  1e-2, 1e-3  |   1e-1, 1e-2, 1e-3   |       1e-2      |
+| Attention Layer Size |       64, 32, 16       |        32, 16, 8       |   16, 8    |        8       |
+|   Patches per Slide  |     25, 50, 75    |   25, 50   |   50   |        50       |
+|           B          |         4, 6, 8        |      4, 8      |   4, 6   |        6        |
 
-**ResNet-ABMIL** (best loss - 0.544718):
+**ResNet-ABMIL** (best val loss - 0.544718):
 |    Hyperparameter    |     First Run    |    Second Run    |     Third Run     | Final Selection |
 |:--------------------:|:----------------:|:----------------:|:-----------------:|:---------------:|
 |     Learning Rate    | 1e-3, 1e-4, 1e-5 | 5e-3, 1e-3, 5e-4 |     1e-3, 5e-4    |       1e-3      |
@@ -209,7 +209,7 @@ Due to resource constraints and the larger size of the ResNet-based models compa
 | Attention Layer Size |   512, 256, 64   |   512, 256, 64   |  256, 128, 64, 32 |        64       |
 |   Patches per Slide  | 2500, 5000, 7500 | 6000, 5000, 4000 | 10000, 8000, 6000 |       6000      |
 
-**HistoResNet-ABMIL** (best loss - 0.523930):
+**HistoResNet-ABMIL** (best val loss - 0.523930):
 |    Hyperparameter    |     First Run    |    Second Run    |        Third Run       | Final Selection |
 |:--------------------:|:----------------:|:----------------:|:----------------------:|:---------------:|
 |     Learning Rate    | 1e-3, 1e-4, 1e-5 | 5e-3, 1e-3, 5e-4 |       1e-2, 5e-3       |       5e-3      |
