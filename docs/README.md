@@ -64,7 +64,7 @@ Model training
 The best model from the 5-fold cross-validation experiment (as judged by averaged validation set cross-entropy loss across three repeats and five folds) was trained:
   
 ``` shell
-python main.py --hardware DGX --max_patches_per_slide 15 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.0 --lr 0.0005 --reg 0.0001 --model_size hipt_smaller --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_15patches_drop0lr0005reg0001_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondbigtuning --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --no_inst_cluster --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
+python main.py --hardware DGX --max_patches_per_slide 75 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.85 --lr 0.001 --reg 0.5 --model_size hipt_smaller --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_75patches_drop85lr001reg5_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromtuning --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --no_inst_cluster --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
 ```
 </details>
 
@@ -75,22 +75,22 @@ Model evaluation
 The model was evaluated on the test sets of the five-fold cross validation with 100,000 iterations of bootstrapping:
   
 ``` shell
-python eval.py --drop_out 0.0 --model_size hipt_smaller --models_exp_code treatment_HIPTnormalised_Q90_betterseg_15patches_drop0lr0005reg0001_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondbigtuning_s1 --save_exp_code treatment_HIPTnormalised_Q90_betterseg_15patches_drop0lr0005reg0001_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondbigtuning_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/data" --k 5 --features_folder "treatment_Q90_hipt4096_features_normalised_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv' 
-python bootstrapping.py --num_classes 2 --model_names  treatment_HIPTnormalised_Q90_betterseg_15patches_drop0lr0005reg0001_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromsecondbigtuning_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
+python eval.py --drop_out 0.85 --model_size hipt_smaller --models_exp_code treatment_HIPTnormalised_Q90_betterseg_75patches_drop85lr001reg5_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromtuning_s1 --save_exp_code treatment_HIPTnormalised_Q90_betterseg_75patches_drop85lr001reg5_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromtuning_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/data" --k 5 --features_folder "treatment_Q90_hipt4096_features_normalised_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv' 
+python bootstrapping.py --num_classes 2 --model_names  treatment_HIPTnormalised_Q90_betterseg_75patches_drop85lr001reg5_modelhiptsmaller_ABMILsb_ce_20x_5fold_noaugs_bestfromtuning_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
 ```
 
 The cross-validation results for this optimal HIPT-ABMIL model were as follows:
 
 ``` shell
  Confusion Matrix:
- [[ 76  49]
- [ 29 128]]
+ [[ 67  58]
+ [ 52 105]]
 
- average ce loss:  0.4858174402095372 (not bootstrapped)
- AUC mean:  [0.8206680412411297]  AUC std:  [0.02530094639907452]
- F1 mean:  [0.7659177381223935]  F1 std:  [0.02579712919409385]
- accuracy mean:  [0.7234604255319149]  accuracy std:  [0.02667653193254119]
- balanced accuracy mean:  [0.7117468943178861]  balanced accuracy std:  [0.026864606981070703]
+average ce loss:  0.6566262821100505 (not bootstrapped)
+AUC mean:  [0.6462152119047966]  AUC std:  [0.0327726301498332]
+F1 mean:  [0.6555390560595742]  F1 std:  [0.030966812688641578]
+accuracy mean:  [0.6098769858156028]  accuracy std:  [0.029113603502602444]
+balanced accuracy mean:  [0.6023222392844355]  balanced accuracy std:  [0.029256761098503874]
 ```
 </details>
 
@@ -104,9 +104,9 @@ For the model tuning, only one example run is given per model, though many were 
 HIPT-CLAM - Same patches and features as HIPT-ABMIL, then:
 ``` shell
 python main.py --model_size hipt_small --tuning --hardware DGX --tuning_output_file /mnt/results/tuning_results/main_treatment_Q90_betterseg_patience30mineverloss_3reps_noaugs_DGX_moreoptionsCLAMsbpart1_fold0.csv --num_tuning_experiments 3 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --split_dir "treatment_5fold_100" --k 1 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_patience30mineverloss_3reps_noaugs_tuning_moreoptionsCLAMsbpart1_fold0 --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 200 --model_type clam_sb --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
-python main.py --hardware DGX --max_patches_per_slide 25 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.25 --lr 0.001 --reg 0.001 --model_size hipt_smaller --B 6 --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1 --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
-python eval.py --drop_out 0.25 --model_size hipt_smaller --models_exp_code treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1_s1 --save_exp_code treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/data" --k 5 --features_folder "treatment_Q90_hipt4096_features_normalised_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv'
-python bootstrapping.py --num_classes 2 --model_names  treatment_HIPTnormalised_Q90_betterseg_25patches_drop25lr001reg001_modelhiptsmaller_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromfirstbigtuningpart1_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
+python main.py --hardware DGX --max_patches_per_slide 50 --data_slide_dir "/mnt/data/ATEC_jpeg90compress" --min_epochs 0 --early_stopping --drop_out 0.85 --lr 0.001 --reg 0.01 --model_size hipt_smallest --B 6 --split_dir "treatment_5fold_100" --k 5 --results_dir /mnt/results --exp_code treatment_HIPTnormalised_Q90_betterseg_50patches_drop85lr001reg01_modelhiptsmallest_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromtuning --subtyping --weighted_sample --bag_loss ce --task treatment --max_epochs 1000 --model_type clam_sb --csv_path 'dataset_csv/set_treatment.csv' --data_root_dir "/mnt/data" --features_folder treatment_Q90_hipt4096_features_normalised_updatedsegmentation
+python eval.py --drop_out 0.85 --model_size hipt_smaller --models_exp_code treatment_HIPTnormalised_Q90_betterseg_50patches_drop85lr001reg01_modelhiptsmallest_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromtuning_s1 --save_exp_code treatment_HIPTnormalised_Q90_betterseg_50patches_drop85lr001reg01_modelhiptsmallest_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromtuning_bootstrapping --task treatment --model_type clam_sb --results_dir /mnt/results --data_root_dir "/mnt/data" --k 5 --features_folder "treatment_Q90_hipt4096_features_normalised_updatedsegmentation" --csv_path 'dataset_csv/set_treatment.csv'
+python bootstrapping.py --num_classes 2 --model_names  treatment_HIPTnormalised_Q90_betterseg_50patches_drop85lr001reg01_modelhiptsmallest_CLAMsb_B6_ce_20x_5fold_noaugs_bestfromtuning_bootstrapping --bootstraps 100000 --run_repeats 1 --folds 5
 ```
 
 ResNet-ABMIL:
