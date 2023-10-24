@@ -163,6 +163,7 @@ def main():
                             "lr": tune.grid_search([0.001,0.0005]),
                             "A_patches": tune.grid_search([10000, 8000, 6000]),
                             "model_size": tune.grid_search(["tiny","tiny128","tinier","tinier3"])
+                            }
 
             else:
                 if args.model_size in ["hipt_big","hipt_medium","hipt_small","hipt_smaller","hipt_smallest"]:
